@@ -1,0 +1,110 @@
+# General
+# Ignore temporary files, editor backups and system files
+*~
+# Swap files
+*.swp
+*.swo
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+desktop.ini
+
+# Build directories
+/build/
+*/build/
+
+# CMake generated files
+/CMakeFiles/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+Makefile
+Makefile.*
+cmake_install.*
+
+# Qt/CMake autogen and moc files (usually in build)
+ClientApp_autogen/
+*/ClientApp_autogen/
+*_autogen/
+
+# Qt Creator and qmake
+*.pro.user
+*.pro.user.*
+*.creator.user
+*.creator.user.*
+*.qmake.stash
+*.qmake.cache
+
+# Generated moc, ui, qrc outputs (commonly produced into build/)
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Compiled object files and libraries
+*.o
+*.obj
+*.lo
+*.lai
+*.la
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.sh
+*.cmake
+*.md
+# Debug and release folders
+/Debug/
+/Release/
+*/Debug/
+*/Release/
+
+# Qt Designer backups
+*.~
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Visual Studio
+*.VC.db
+*.VC.VC.opendb
+*.sdf
+*.opensdf
+*.user
+*.user.*
+*.suo
+
+# Logs and temporary
+*.log
+*.tmp
+*.temp
+*.pid
+*.seed
+
+# Coverage
+.coverage
+coverage.xml
+
+# Tests
+test-output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Certificates, keys, secrets
+*.pem
+*.key
+
+# Misc
+core
+tags
