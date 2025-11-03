@@ -19,7 +19,8 @@ ConnectPageController::ConnectPageController(ConnectPage *connectPage, ChatWindo
     , m_connectPage(connectPage)
     , m_chatWindow(chatWindow)
     , m_serverChatWindow(serverChatWindow)
-    , m_chatController(new ChatController())
+    , m_clientChatController(nullptr)
+    , m_serverChatController(nullptr)
     , m_client(nullptr)
     , m_server(nullptr)
     , m_clientDb(nullptr)
@@ -34,7 +35,8 @@ ConnectPageController::ConnectPageController(ConnectPage *connectPage, ChatWindo
 
 ConnectPageController::~ConnectPageController()
 {
-    delete m_chatController;
+    delete m_clientChatController;
+    delete m_serverChatController;
     delete m_client;
     delete m_server;
     delete m_clientDb;
@@ -96,8 +98,12 @@ void ConnectPageController::onCreateServer()
         qDebug() << "Server database initialized at:" << dbPath;
     }
     
+    // Create server chat controller
+    m_serverChatController = new ChatController();
+    qDebug() << "DEBUG: Created m_serverChatController:" << m_serverChatController;
+    
     // Initialize chat controller with server (uses ServerChatWindow)
-    m_chatController->initServer(m_serverChatWindow, m_server, m_serverDb);
+    m_serverChatController->initServer(m_serverChatWindow, m_server, m_serverDb);
     
     // Update server info panel
     m_serverChatWindow->updateServerInfo("127.0.0.1", 8000, "متصل");
@@ -121,8 +127,12 @@ void ConnectPageController::onConnectionSuccess()
         qDebug() << "Client database initialized at:" << dbPath;
     }
     
+    // Create client chat controller
+    m_clientChatController = new ChatController();
+    qDebug() << "DEBUG: Created m_clientChatController:" << m_clientChatController;
+    
     // Initialize chat controller with client (uses regular ChatWindow)
-    m_chatController->initClient(m_chatWindow, m_client, m_clientDb);
+    m_clientChatController->initClient(m_chatWindow, m_client, m_clientDb);
     
     // Update client connection info
     m_chatWindow->updateConnectionInfo(m_serverUrl, "متصل");

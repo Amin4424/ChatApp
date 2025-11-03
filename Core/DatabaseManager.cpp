@@ -74,9 +74,14 @@ bool DatabaseManager::saveMessage(const QString &sender, const QString &receiver
     QSqlQuery query(m_db);
     query.prepare("INSERT INTO messages (sender, receiver, message, timestamp) "
                   "VALUES (:sender, :receiver, :message, :timestamp)");
-    
-    query.bindValue(":sender", sender);
-    query.bindValue(":receiver", receiver);
+    // Ensure sender/receiver are not empty to satisfy NOT NULL constraints
+    QString safeSender = sender;
+    QString safeReceiver = receiver;
+    if (safeSender.trimmed().isEmpty()) safeSender = "Unknown";
+    if (safeReceiver.trimmed().isEmpty()) safeReceiver = "Unknown";
+
+    query.bindValue(":sender", safeSender);
+    query.bindValue(":receiver", safeReceiver);
     query.bindValue(":message", message);
     query.bindValue(":timestamp", timestamp.toString(Qt::ISODate));
     

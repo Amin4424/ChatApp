@@ -1,4 +1,5 @@
 #include "WebSocketServer.h"
+#include "TusServer.h"
 #include <QDebug>
 #include <QHostAddress>
 
@@ -7,13 +8,19 @@ WebSocketServer::WebSocketServer(quint16 port, QObject *parent)
     , m_pWebSocketServer(new QWebSocketServer(QStringLiteral("Echo Server"),
                                               QWebSocketServer::NonSecureMode,
                                               this))
+    , m_tusServer(new TusServer(this))
 {
     if (m_pWebSocketServer->listen(QHostAddress::Any, port)) {
-        qDebug() << "Server listening on port" << port;
+        qDebug() << "WebSocket Server listening on port" << port;
         connect(m_pWebSocketServer, &QWebSocketServer::newConnection,
                 this, &WebSocketServer::onNewConnection);
     } else {
         qWarning() << "Failed to listen on port" << port << "- check if the port is already in use or you have sufficient permissions.";
+    }
+
+    // Start TUS (HTTP) server on port 1080
+    if (!m_tusServer->start(1080, "./uploads")) {
+        qWarning() << "Failed to start TUS server alongside WebSocket server";
     }
 }
 
@@ -31,6 +38,11 @@ WebSocketServer::~WebSocketServer()
             m_client = nullptr;
         }
 
+    }
+
+    // Stop TUS server
+    if (m_tusServer) {
+        m_tusServer->stop();
     }
 }
 

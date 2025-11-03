@@ -30,7 +30,8 @@ private:
     ConnectPage *m_connectPage;
     ChatWindow  *m_chatWindow;
     ServerChatWindow *m_serverChatWindow;
-    ChatController *m_chatController;
+    ChatController *m_clientChatController;
+    ChatController *m_serverChatController;
 
     WebSocketClient *m_client;
     WebSocketServer *m_server;

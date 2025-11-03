@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QListWidgetItem>
+#include <QProgressBar>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -20,6 +21,7 @@ public:
     
 signals:
     void sendMessageRequested(const QString &message);
+    void fileUploaded(const QString &fileName, const QString &url, qint64 fileSize);
     void userSelected(const QString &userId);
     void restartServerRequested();
     
@@ -28,12 +30,14 @@ private slots:
     void onchatHistoryWdgtitemClicked(QListWidgetItem *item);
     void onUserListItemClicked(QListWidgetItem *item);
     void onRestartServerClicked();
+    void onSendFileClicked();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
 public:
-    void showMessage(QString msg);
+    void showMessage(const QString &msg);
+    void showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo);
     void updateUserList(const QStringList &users);
     void updateUserCount(int count);
     void setPrivateChatMode(const QString &userId);
@@ -46,6 +50,7 @@ private:
     Ui::ServerChatWindow *ui;
     bool m_isPrivateChat;
     QString m_currentTargetUser;
+    QProgressBar *m_uploadProgressBar;
 };
 
 #endif // SERVERCHATWINDOW_H

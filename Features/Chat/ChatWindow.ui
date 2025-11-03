@@ -213,6 +213,41 @@ QPushButton:pressed {
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="sendFileBtn">
+            <property name="minimumSize">
+             <size>
+              <width>60</width>
+              <height>60</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>60</height>
+             </size>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #075e54;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14pt;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #0a7c6f;
+}
+QPushButton:pressed {
+    background-color: #055346;
+}</string>
+            </property>
+            <property name="text">
+             <string>+</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QTextEdit" name="typeMessageTxt">
             <property name="minimumSize">
              <size>
@@ -339,6 +374,19 @@ QTextEdit:focus {
         </widget>
        </item>
        <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
         <widget class="QLabel" name="clientConnectionLabel">
          <property name="styleSheet">
           <string notr="true">font-size: 11pt; color: #555; padding: 5px;</string>
@@ -353,19 +401,6 @@ QTextEdit:focus {
           <bool>true</bool>
          </property>
         </widget>
-       </item>
-       <item>
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
        </item>
        <item>
         <widget class="QPushButton" name="reconnectBtn">
