@@ -1,5 +1,5 @@
 #include "ChatController.h"
-#include "ChatWindow.h"
+#include "ClientChatWindow.h"
 #include "ServerChatWindow.h"
 #include "../../Core/WebSocketClient.h"
 #include "../../Core/WebSocketServer.h"
@@ -28,7 +28,7 @@ ChatController::~ChatController()
     
 }
 
-void ChatController::initClient(ChatWindow *view, WebSocketClient *client, DatabaseManager *db)
+void ChatController::initClient(ClientChatWindow *view, WebSocketClient *client, DatabaseManager *db)
 {
     m_clientView = view;
     m_client = client;
@@ -41,11 +41,11 @@ void ChatController::initClient(ChatWindow *view, WebSocketClient *client, Datab
     }
     
     // Connect view's send button to our handler
-    connect(m_clientView, &ChatWindow::sendMessageRequested,
+    connect(m_clientView, &ClientChatWindow::sendMessageRequested,
             this, &ChatController::displayNewMessages);
     
     // Connect file upload signal
-    connect(m_clientView, &ChatWindow::fileUploaded,
+    connect(m_clientView, &ClientChatWindow::fileUploaded,
             this, &ChatController::onFileUploaded);
     
     // Connect to receive messages from server

@@ -1,7 +1,7 @@
 #include <QApplication>
 #include "ConnectPage.h"
 #include "ConnectPageController.h"
-#include "ChatWindow.h"
+#include "ClientChatWindow.h"
 #include "ServerChatWindow.h"
 
 int main(int argc, char *argv[])
@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     
     // Create UI components
     ConnectPage *connectPage = new ConnectPage();
-    ChatWindow *chatWindow = new ChatWindow();  // For clients
+    ClientChatWindow *chatWindow = new ClientChatWindow();  // For clients
     ServerChatWindow *serverChatWindow = new ServerChatWindow();  // For server
     
     // Create controller that manages connection logic

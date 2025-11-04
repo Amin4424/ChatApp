@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>ServerChatWindow</class>
- <widget class="QMainWindow" name="ServerChatWindow">
+ <class>ClientChatWindow</class>
+ <widget class="QMainWindow" name="ChatWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1000</width>
-    <height>700</height>
+    <width>800</width>
+    <height>650</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Server Chat - مدیریت چت</string>
+   <string>Chat Window - چت</string>
   </property>
   <property name="styleSheet">
    <string notr="true">QMainWindow {
@@ -22,7 +22,7 @@ QWidget#centralwidget {
 }</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QHBoxLayout" name="horizontalLayout">
+   <layout class="QHBoxLayout" name="horizontalLayout_main">
     <property name="spacing">
      <number>0</number>
     </property>
@@ -43,7 +43,6 @@ QWidget#centralwidget {
       <property name="styleSheet">
        <string notr="true">QWidget#chatSection {
     background-color: #ffffff;
-    border-right: 1px solid #e0e0e0;
 }</string>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout">
@@ -82,14 +81,14 @@ QWidget#centralwidget {
     border-bottom: 1px solid #055346;
 }</string>
          </property>
-         <layout class="QVBoxLayout" name="verticalLayout_3">
+         <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
            <widget class="QLabel" name="chatTitleLabel">
             <property name="styleSheet">
              <string notr="true">font-size: 14pt; font-weight: bold; padding: 0px; color: white;</string>
             </property>
             <property name="text">
-             <string>گفتگوی عمومی</string>
+             <string>گفتگو با سرور</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
@@ -102,7 +101,7 @@ QWidget#centralwidget {
              <string notr="true">font-size: 10pt; padding: 2px; color: #ffffff;</string>
             </property>
             <property name="text">
-             <string>پیام‌های شما به همه ارسال می‌شود</string>
+             <string>متصل به سرور</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
@@ -165,7 +164,7 @@ QListWidget::item:hover {
     border-top: 1px solid #d0d0d0;
 }</string>
          </property>
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <layout class="QHBoxLayout" name="horizontalLayout">
           <property name="spacing">
            <number>10</number>
           </property>
@@ -293,125 +292,7 @@ QTextEdit:focus {
      </widget>
     </item>
     <item>
-     <widget class="QWidget" name="userListSection" native="true">
-      <property name="minimumSize">
-       <size>
-        <width>280</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>320</width>
-        <height>16777215</height>
-       </size>
-      </property>
-      <property name="styleSheet">
-       <string notr="true">QWidget#userListSection {
-    background-color: #ffffff;
-}</string>
-      </property>
-      <layout class="QVBoxLayout" name="verticalLayout_2">
-       <property name="spacing">
-        <number>0</number>
-       </property>
-       <property name="leftMargin">
-        <number>0</number>
-       </property>
-       <property name="topMargin">
-        <number>0</number>
-       </property>
-       <property name="rightMargin">
-        <number>0</number>
-       </property>
-       <property name="bottomMargin">
-        <number>0</number>
-       </property>
-       <item>
-        <widget class="QWidget" name="userListHeader" native="true">
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>70</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>70</height>
-          </size>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QWidget#userListHeader {
-    background-color: #075e54;
-}</string>
-         </property>
-         <layout class="QVBoxLayout" name="verticalLayout_4">
-          <item>
-           <widget class="QLabel" name="userListTitle">
-            <property name="styleSheet">
-             <string notr="true">font-size: 14pt; font-weight: bold; padding: 0px; color: white;</string>
-            </property>
-            <property name="text">
-             <string>کاربران آنلاین</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="userCountLabel">
-            <property name="styleSheet">
-             <string notr="true">font-size: 11pt; padding: 3px; color: #d1f4e8;</string>
-            </property>
-            <property name="text">
-             <string>کاربر متصل: 0</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
-        <widget class="QListWidget" name="userListWdgt">
-         <property name="layoutDirection">
-          <enum>Qt::RightToLeft</enum>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QListWidget {
-    background-color: #ffffff;
-    border: none;
-    font-size: 12pt;
-    padding: 5px;
-    color: #000000;
-}
-QListWidget::item {
-    background-color: #f8f8f8;
-    border: none;
-    border-radius: 8px;
-    padding: 12px;
-    margin: 5px;
-    color: #000000;
-}
-QListWidget::item:hover {
-    background-color: #e8f5e9;
-}
-QListWidget::item:selected {
-    background-color: #c8e6c9;
-    color: #2e7d32;
-}</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item>
-     <widget class="QWidget" name="serverInfoSection" native="true">
+     <widget class="QWidget" name="clientInfoSection" native="true">
       <property name="minimumSize">
        <size>
         <width>220</width>
@@ -425,12 +306,12 @@ QListWidget::item:selected {
        </size>
       </property>
       <property name="styleSheet">
-       <string notr="true">QWidget#serverInfoSection {
+       <string notr="true">QWidget#clientInfoSection {
     background-color: #ffffff;
     border-left: 1px solid #e0e0e0;
 }</string>
       </property>
-      <layout class="QVBoxLayout" name="verticalLayout_5">
+      <layout class="QVBoxLayout" name="verticalLayout_3">
        <property name="spacing">
         <number>15</number>
        </property>
@@ -447,7 +328,7 @@ QListWidget::item:selected {
         <number>20</number>
        </property>
        <item alignment="Qt::AlignHCenter">
-        <widget class="QLabel" name="serverLogoLabel">
+        <widget class="QLabel" name="clientLogoLabel">
          <property name="minimumSize">
           <size>
            <width>120</width>
@@ -476,7 +357,7 @@ QListWidget::item:selected {
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="serverOrgLabel">
+        <widget class="QLabel" name="clientOrgLabel">
          <property name="styleSheet">
           <string notr="true">font-size: 14pt; font-weight: bold; color: #333;</string>
          </property>
@@ -496,23 +377,6 @@ QListWidget::item:selected {
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="serverIpLabel">
-         <property name="styleSheet">
-          <string notr="true">font-size: 11pt; color: #555; padding: 5px;</string>
-         </property>
-         <property name="text">
-          <string>آی پی ثابت شما :
-وضعیت اتصال : متصل</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-         <property name="wordWrap">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -526,7 +390,23 @@ QListWidget::item:selected {
         </spacer>
        </item>
        <item>
-        <widget class="QPushButton" name="restartServerBtn">
+        <widget class="QLabel" name="clientConnectionLabel">
+         <property name="styleSheet">
+          <string notr="true">font-size: 11pt; color: #555; padding: 5px;</string>
+         </property>
+         <property name="text">
+          <string>وضعیت اتصال : متصل</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="reconnectBtn">
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -564,7 +444,7 @@ QPushButton:pressed {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1000</width>
+     <width>800</width>
      <height>23</height>
     </rect>
    </property>

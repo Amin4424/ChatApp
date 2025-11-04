@@ -3,6 +3,7 @@
 #include <QPushButton>
 #include <QDebug>
 #include <QKeyEvent>
+#include <QRegularExpression>
 
 // --- ADD THESE INCLUDES ---
 #include <QFileDialog>
@@ -13,17 +14,18 @@
 #include <QPixmap>
 #include "../FileTransfer/TusUploader.h"
 #include "FileMessageItem.h"
+#include "TextMessageItem.h"
 // ---
 
 ServerChatWindow::ServerChatWindow(QWidget *parent)
-    : QMainWindow(parent)
+    : BaseChatWindow(parent)
     , ui(new Ui::ServerChatWindow)
     , m_isPrivateChat(false)
     , m_currentTargetUser("")
     , m_uploadProgressBar(nullptr) // <-- INITIALIZE
 {
     ui->setupUi(this);
-    
+    ui->chatHistoryWdgt->setResizeMode(QListView::Adjust);
     // Connect send button click to slot
     connect(ui->sendMessageBtn, &QPushButton::clicked,
             this, &ServerChatWindow::onsendMessageBtnclicked);
@@ -120,15 +122,13 @@ void ServerChatWindow::onBroadcastModeClicked()
 void ServerChatWindow::showMessage(const QString &msg)
 {
     if(msg.isEmpty()) return;
-    
+
     // Check if msg is a URL to an image
     if (msg.startsWith("http://") || msg.startsWith("https://")) {
         QString lowerMsg = msg.toLower();
         if (lowerMsg.endsWith(".jpg") || lowerMsg.endsWith(".jpeg") || lowerMsg.endsWith(".png") || lowerMsg.endsWith(".gif") || lowerMsg.endsWith(".bmp")) {
-            // Create a custom widget for the image
             QWidget *imageWidget = new QWidget();
             QHBoxLayout *layout = new QHBoxLayout(imageWidget);
-            
             QLabel *imageLabel = new QLabel();
             QPixmap pixmap(msg);
             if (!pixmap.isNull()) {
@@ -136,32 +136,52 @@ void ServerChatWindow::showMessage(const QString &msg)
             } else {
                 imageLabel->setText("Failed to load image");
             }
-            
             QLabel *urlLabel = new QLabel(QString("<a href='%1'>%1</a>").arg(msg));
             urlLabel->setOpenExternalLinks(true);
-            
             layout->addWidget(imageLabel);
             layout->addWidget(urlLabel);
             layout->setContentsMargins(10, 10, 10, 10);
-            
             QListWidgetItem *item = new QListWidgetItem();
             item->setSizeHint(imageWidget->sizeHint());
             ui->chatHistoryWdgt->addItem(item);
             ui->chatHistoryWdgt->setItemWidget(item, imageWidget);
         } else {
-            // Regular URL, make it clickable
             QLabel *urlLabel = new QLabel(QString("<a href='%1'>%1</a>").arg(msg));
             urlLabel->setOpenExternalLinks(true);
-            
             QListWidgetItem *item = new QListWidgetItem();
             item->setSizeHint(urlLabel->sizeHint());
             ui->chatHistoryWdgt->addItem(item);
             ui->chatHistoryWdgt->setItemWidget(item, urlLabel);
         }
-    } else {
-        ui->chatHistoryWdgt->addItem(msg);
+  } else {
+        // Parse message format: "[HH:mm:] Sender: message text"
+        QString senderInfo;
+        QString messageText;
+        
+        QRegularExpression rx("^\\[([^\\]]+)\\]\\s*(.+?):\\s*(.*)$");
+        QRegularExpressionMatch match = rx.match(msg);
+        
+        if (match.hasMatch()) {
+            QString time = match.captured(1);
+            QString sender = match.captured(2);
+            messageText = match.captured(3);
+            senderInfo = QString("[%1] %2").arg(time, sender);
+        } else {
+            // If parsing fails, use the whole message as text
+            messageText = msg;
+        }
+        
+        // Create TextMessageItem widget
+        TextMessageItem *textItem = new TextMessageItem(messageText, senderInfo, TextMessageItem::Received, this);
+
+        // Add to list
+        QListWidgetItem *item = new QListWidgetItem();
+        ui->chatHistoryWdgt->addItem(item);
+        ui->chatHistoryWdgt->setItemWidget(item, textItem);
+        
+        item->setSizeHint(textItem->sizeHint()); 
+        ui->chatHistoryWdgt->scrollToBottom();
     }
-    ui->chatHistoryWdgt->scrollToBottom();
     ui->typeMessageTxt->clear();
 }
 
@@ -178,11 +198,11 @@ void ServerChatWindow::showFileMessage(const QString &fileName, qint64 fileSize,
     // Add sender info label
     QLabel *senderLabel = new QLabel(senderInfo);
     senderLabel->setStyleSheet("font-size: 10px; color: #666; margin-bottom: 2px;");
-    mainLayout->addWidget(senderLabel);
+    mainLayout->addWidget(senderLabel, 0, Qt::AlignLeft);
 
     // Add file message item
-    FileMessageItem *fileItem = new FileMessageItem(fileName, fileSize, fileUrl, messageWidget);
-    mainLayout->addWidget(fileItem);
+    FileMessageItem *fileItem = new FileMessageItem(fileName, fileSize, fileUrl, senderInfo, messageWidget);
+    mainLayout->addWidget(fileItem, 0, Qt::AlignLeft);
 
     QListWidgetItem *item = new QListWidgetItem();
     item->setSizeHint(messageWidget->sizeHint());
@@ -339,4 +359,14 @@ void ServerChatWindow::onSendFileClicked()
     // --- Start the upload ---
     qDebug() << "Starting upload of" << filePath;
     uploader->startUpload(filePath, tusEndpoint);
+}
+
+void ServerChatWindow::handleSendMessage()
+{
+    onsendMessageBtnclicked();
+}
+
+void ServerChatWindow::handleFileUpload()
+{
+    onSendFileClicked();
 }

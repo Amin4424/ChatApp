@@ -1,20 +1,23 @@
 #ifndef FILEMESSAGEITEM_H
 #define FILEMESSAGEITEM_H
 
-#include <QWidget>
+#include "BaseMessageItem.h"
 #include <QString>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QProgressBar>
 #include <QPushButton>
 
-class FileMessageItem : public QWidget
+class FileMessageItem : public BaseMessageItem
 {
     Q_OBJECT
 
 public:
-    explicit FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl, QWidget *parent = nullptr);
+    explicit FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo = "", QWidget *parent = nullptr);
     ~FileMessageItem();
+
+protected:
+    void setupUI() override;
 
 private slots:
     void downloadFile();
@@ -24,7 +27,7 @@ private slots:
     void openFile();
 
 private:
-    void setupUi(const QString &fileName, qint64 fileSize);
+    void setupFileUI(const QString &fileName, qint64 fileSize);
     QPixmap getFileIconPixmap(const QString &extension);
     QString formatSize(qint64 bytes);
 

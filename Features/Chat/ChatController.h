@@ -5,7 +5,7 @@
 #include <QString>
 #include <QStringList>
 
-class ChatWindow;
+class ClientChatWindow;
 class ServerChatWindow;
 class WebSocketClient;
 class WebSocketServer;
@@ -19,7 +19,9 @@ public:
     explicit ChatController(QWidget *parent = nullptr);
     ~ChatController();
 
-    void initClient(ChatWindow *view, WebSocketClient *client, DatabaseManager *db);
+    // Initialize for client mode
+    void initClient(ClientChatWindow *view, WebSocketClient *client, DatabaseManager *db);
+    // Initialize for server mode
     void initServer(ServerChatWindow *view, WebSocketServer *server, DatabaseManager *db);
 
     void displayNewConnection();
@@ -42,7 +44,7 @@ private:
     void loadHistoryForUser(const QString &userId);
 
     // Views
-    ChatWindow *m_clientView;
+    ClientChatWindow *m_clientView;
     ServerChatWindow *m_serverView;
 
     // Models

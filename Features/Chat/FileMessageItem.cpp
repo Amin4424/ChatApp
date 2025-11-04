@@ -18,17 +18,22 @@
 #include <QPainter>
 #include <QFileIconProvider>
 
-FileMessageItem::FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl, QWidget *parent)
-    : QWidget(parent), m_fileUrl(fileUrl), m_fileName(fileName), m_fileSize(fileSize)
+FileMessageItem::FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo, QWidget *parent)
+    : BaseMessageItem(senderInfo, parent), m_fileUrl(fileUrl), m_fileName(fileName), m_fileSize(fileSize)
 {
-    setupUi(fileName, fileSize);
+    setupUI();
 }
 
 FileMessageItem::~FileMessageItem() {}
 
-void FileMessageItem::setupUi(const QString &fileName, qint64 fileSize)
+void FileMessageItem::setupUI()
 {
-    setFixedHeight(60);
+    setupFileUI(m_fileName, m_fileSize);
+}
+
+void FileMessageItem::setupFileUI(const QString &fileName, qint64 fileSize)
+{
+    setFixedHeight(120);
     setStyleSheet(
         "FileMessageItem {"
         "    background-color: #f0f0f0;"

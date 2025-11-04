@@ -37,14 +37,16 @@ set(PROJECT_SOURCES
 
     Features/Chat/ChatController.cpp
     Features/Chat/ChatController.h
-    Features/Chat/ChatWindow.cpp
-    Features/Chat/ChatWindow.h
-    Features/Chat/ChatWindow.ui
+    Features/Chat/BaseChatWindow.cpp
+    Features/Chat/BaseChatWindow.h
+    Features/Chat/ClientChatWindow.cpp
+    Features/Chat/ClientChatWindow.h
+    Features/Chat/ClientChatWindow.ui
     Features/Chat/ServerChatWindow.cpp
     Features/Chat/ServerChatWindow.h
     Features/Chat/ServerChatWindow.ui
-    Features/Chat/MessageItem.cpp
-    Features/Chat/MessageItem.h
+    Features/Chat/BaseMessageItem.cpp
+    Features/Chat/BaseMessageItem.h
     Features/Chat/FileMessageItem.cpp
     Features/Chat/FileMessageItem.h
 
@@ -61,7 +63,8 @@ set(PROJECT_SOURCES
 find_package(Qt6 REQUIRED COMPONENTS Core)
 
 add_executable(ClientApp ${PROJECT_SOURCES}
-     Features/FileTransfer/TusUploader.h  Features/FileTransfer/TusUploader.cpp)
+     Features/FileTransfer/TusUploader.h  Features/FileTransfer/TusUploader.cpp
+     Features/Chat/TextMessageItem.h Features/Chat/TextMessageItem.cpp Features/Chat/TextMessageItem.ui)
 
 # ---
 # This tells the compiler where to find your headers

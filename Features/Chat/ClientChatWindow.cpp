@@ -1,5 +1,5 @@
-#include "ChatWindow.h"
-#include "ui_ChatWindow.h"
+#include "ClientChatWindow.h"
+#include "ui_ClientChatWindow.h"
  #include <QKeyEvent>
  #include <QDebug>
  #include <QRegularExpression>
@@ -17,24 +17,24 @@
 #include "TextMessageItem.h"
 // ---
 
-ChatWindow::ChatWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::ChatWindow)
+ClientChatWindow::ClientChatWindow(QWidget *parent)
+    : BaseChatWindow(parent)
+    , ui(new Ui::ClientChatWindow)
     , m_uploadProgressBar(nullptr) // <-- INITIALIZE
 {
     ui->setupUi(this);
     
     // Connect send button click to slot
     connect(ui->sendMessageBtn, &QPushButton::clicked,
-            this, &ChatWindow::onsendMessageBtnclicked);
+            this, &ClientChatWindow::onsendMessageBtnclicked);
             
     // --- ADD THIS CONNECTION ---
     connect(ui->sendFileBtn, &QPushButton::clicked,
-            this, &ChatWindow::onSendFileClicked);
+            this, &ClientChatWindow::onSendFileClicked);
             
     // Connect reconnect button
     connect(ui->reconnectBtn, &QPushButton::clicked,
-            this, &ChatWindow::onReconnectClicked);
+            this, &ClientChatWindow::onReconnectClicked);
     
     // Install event filter for Enter key
     ui->typeMessageTxt->installEventFilter(this);
@@ -49,12 +49,12 @@ ChatWindow::ChatWindow(QWidget *parent)
     ui->statusbar->addPermanentWidget(m_uploadProgressBar, 1);
 }
 
-ChatWindow::~ChatWindow()
+ClientChatWindow::~ClientChatWindow()
 {
     delete ui;
 }
 
-bool ChatWindow::eventFilter(QObject *obj, QEvent *event)
+bool ClientChatWindow::eventFilter(QObject *obj, QEvent *event)
 {
     if (obj == ui->typeMessageTxt && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
@@ -69,20 +69,20 @@ bool ChatWindow::eventFilter(QObject *obj, QEvent *event)
     return QMainWindow::eventFilter(obj, event);
 }
 
-void ChatWindow::onsendMessageBtnclicked()
+void ClientChatWindow::onsendMessageBtnclicked()
 {
     QString message = ui->typeMessageTxt->toPlainText();
     emit sendMessageRequested(message);
 }
 
-void ChatWindow::onchatHistoryWdgtitemClicked(QListWidgetItem *item)
+void ClientChatWindow::onchatHistoryWdgtitemClicked(QListWidgetItem *item)
 {
     qDebug() << "You clicked on message:" << item->text();
 }
 
-void ChatWindow::showMessage(const QString &msg)
+void ClientChatWindow::showMessage(const QString &msg)
 {
-    qDebug() << "=== ChatWindow::showMessage called ===";
+    qDebug() << "=== ClientChatWindow::showMessage called ===";
     qDebug() << "Message:" << msg;
     qDebug() << "Message length:" << msg.length();
     qDebug() << "Is empty?" << msg.isEmpty();
@@ -155,10 +155,10 @@ void ChatWindow::showMessage(const QString &msg)
         }
         ui->typeMessageTxt->clear();
     }
-    qDebug() << "=== End ChatWindow::showMessage ===";
+    qDebug() << "=== End ClientChatWindow::showMessage ===";
 }
 
-void ChatWindow::showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo)
+void ClientChatWindow::showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo)
 {
     if(fileName.isEmpty() || fileUrl.isEmpty()) return;
 
@@ -174,7 +174,7 @@ void ChatWindow::showFileMessage(const QString &fileName, qint64 fileSize, const
     mainLayout->addWidget(senderLabel, 0, Qt::AlignLeft);
 
     // Add file message item
-    FileMessageItem *fileItem = new FileMessageItem(fileName, fileSize, fileUrl, messageWidget);
+    FileMessageItem *fileItem = new FileMessageItem(fileName, fileSize, fileUrl, senderInfo, messageWidget);
     mainLayout->addWidget(fileItem, 0, Qt::AlignLeft);
 
     QListWidgetItem *item = new QListWidgetItem();
@@ -186,20 +186,20 @@ void ChatWindow::showFileMessage(const QString &fileName, qint64 fileSize, const
     ui->typeMessageTxt->clear();
 }
 
-void ChatWindow::updateConnectionInfo(const QString &serverUrl, const QString &status)
+void ClientChatWindow::updateConnectionInfo(const QString &serverUrl, const QString &status)
 {
     QString infoText = QString("وضعیت اتصال : %1").arg(status);
     ui->clientConnectionLabel->setText(infoText);
 }
 
-void ChatWindow::onReconnectClicked()
+void ClientChatWindow::onReconnectClicked()
 {
     qDebug() << "Reconnect button clicked";
     emit reconnectRequested();
 }
 
 // --- ADD THIS ENTIRE NEW FUNCTION ---
-void ChatWindow::onSendFileClicked()
+void ClientChatWindow::onSendFileClicked()
 {
     QString filePath = QFileDialog::getOpenFileName(this, "Select File to Upload");
     if (filePath.isEmpty()) {
@@ -243,4 +243,14 @@ void ChatWindow::onSendFileClicked()
     // --- Start the upload ---
     qDebug() << "Starting upload of" << filePath;
     uploader->startUpload(filePath, tusEndpoint);
+}
+
+void ClientChatWindow::handleSendMessage()
+{
+    onsendMessageBtnclicked();
+}
+
+void ClientChatWindow::handleFileUpload()
+{
+    onSendFileClicked();
 }

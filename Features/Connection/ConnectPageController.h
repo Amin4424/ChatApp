@@ -4,7 +4,7 @@
 #include <QObject>
 
 class ConnectPage;
-class ChatWindow;
+class ClientChatWindow;
 class ServerChatWindow;
 class ChatController;
 class WebSocketClient;
@@ -16,7 +16,7 @@ class ConnectPageController : public QObject
     Q_OBJECT
 public:
 
-    explicit ConnectPageController(ConnectPage *connectPage, ChatWindow *chatWindow, ServerChatWindow *serverChatWindow, QObject *parent = nullptr);
+    explicit ConnectPageController(ConnectPage *connectPage, ClientChatWindow *chatWindow, ServerChatWindow *serverChatWindow, QObject *parent = nullptr);
     ~ConnectPageController();
 
 private slots:
@@ -28,7 +28,7 @@ private slots:
 private:
 
     ConnectPage *m_connectPage;
-    ChatWindow  *m_chatWindow;
+    ClientChatWindow  *m_chatWindow;
     ServerChatWindow *m_serverChatWindow;
     ChatController *m_clientChatController;
     ChatController *m_serverChatController;

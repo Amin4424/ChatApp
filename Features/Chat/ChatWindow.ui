@@ -116,6 +116,9 @@ QWidget#centralwidget {
          <property name="layoutDirection">
           <enum>Qt::RightToLeft</enum>
          </property>
+         <property name="horizontalScrollBarPolicy">
+          <enum>Qt::ScrollBarAlwaysOff</enum>
+         </property>
          <property name="styleSheet">
           <string notr="true">QListWidget {
     background-color: #e5ddd5;

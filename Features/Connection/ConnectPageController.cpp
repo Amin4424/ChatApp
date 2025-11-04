@@ -1,6 +1,6 @@
 #include "ConnectPageController.h"
 #include "ConnectPage.h"
-#include "../Chat/ChatWindow.h"
+#include "../Chat/ClientChatWindow.h"
 #include "../Chat/ServerChatWindow.h"
 #include "../Chat/ChatController.h"
 #include "../../Core/WebSocketClient.h"
@@ -14,7 +14,7 @@
 #include <QStandardPaths>
 #include <QDir>
 
-ConnectPageController::ConnectPageController(ConnectPage *connectPage, ChatWindow *chatWindow, ServerChatWindow *serverChatWindow, QObject *parent)
+ConnectPageController::ConnectPageController(ConnectPage *connectPage, ClientChatWindow *chatWindow, ServerChatWindow *serverChatWindow, QObject *parent)
     : QObject(parent)
     , m_connectPage(connectPage)
     , m_chatWindow(chatWindow)

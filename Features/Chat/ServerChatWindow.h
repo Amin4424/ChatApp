@@ -1,7 +1,7 @@
 #ifndef SERVERCHATWINDOW_H
 #define SERVERCHATWINDOW_H
 
-#include <QMainWindow>
+#include "BaseChatWindow.h"
 #include <QListWidgetItem>
 #include <QProgressBar>
 
@@ -11,7 +11,7 @@ class ServerChatWindow;
 }
 QT_END_NAMESPACE
 
-class ServerChatWindow : public QMainWindow
+class ServerChatWindow : public BaseChatWindow
 {
     Q_OBJECT
 
@@ -20,10 +20,13 @@ public:
     ~ServerChatWindow();
     
 signals:
-    void sendMessageRequested(const QString &message);
-    void fileUploaded(const QString &fileName, const QString &url, qint64 fileSize);
     void userSelected(const QString &userId);
     void restartServerRequested();
+
+protected:
+    void handleSendMessage() override;
+    void handleFileUpload() override;
+    bool eventFilter(QObject *obj, QEvent *event) override;
     
 private slots:
     void onsendMessageBtnclicked();
@@ -32,12 +35,9 @@ private slots:
     void onRestartServerClicked();
     void onSendFileClicked();
 
-protected:
-    bool eventFilter(QObject *obj, QEvent *event) override;
-
 public:
-    void showMessage(const QString &msg);
-    void showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo);
+    void showMessage(const QString &msg) override;
+    void showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo) override;
     void updateUserList(const QStringList &users);
     void updateUserCount(int count);
     void setPrivateChatMode(const QString &userId);
