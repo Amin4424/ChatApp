@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>ChatWindow</class>
+ <class>ClientChatWindow</class>
  <widget class="QMainWindow" name="ChatWindow">
   <property name="geometry">
    <rect>
@@ -127,17 +127,19 @@ QWidget#centralwidget {
     padding: 10px;
     color: #000000;
 }
+
+/* * --- FIX ---
+ * Make the item background transparent so the custom widget's style shows through.
+ * Remove border, padding, margin from the item itself.
+*/
 QListWidget::item {
-    background-color: white;
-    border-radius: 8px;
-    padding: 10px;
-    margin: 5px;
-    border: 1px solid #d0d0d0;
-    color: #000000;
+    background-color: transparent;
+    border: none;
+    padding: 0px;
+    margin: 0px;
 }
-QListWidget::item:hover {
-    background-color: #f0f0f0;
-}</string>
+/* --- END FIX --- */
+</string>
          </property>
          <property name="spacing">
           <number>5</number>

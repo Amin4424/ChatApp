@@ -29,22 +29,22 @@ ServerChatWindow::ServerChatWindow(QWidget *parent)
     // Connect send button click to slot
     connect(ui->sendMessageBtn, &QPushButton::clicked,
             this, &ServerChatWindow::onsendMessageBtnclicked);
-    
+
     // Connect user list click to slot
     connect(ui->userListWdgt, &QListWidget::itemClicked,
             this, &ServerChatWindow::onUserListItemClicked);
-    
+
     // Connect restart button
     connect(ui->restartServerBtn, &QPushButton::clicked,
             this, &ServerChatWindow::onRestartServerClicked);
-    
+
     // --- ADD THIS CONNECTION ---
     connect(ui->sendFileBtn, &QPushButton::clicked,
             this, &ServerChatWindow::onSendFileClicked);
-    
+
     // Install event filter for Enter key
     ui->typeMessageTxt->installEventFilter(this);
-    
+
     // --- SETUP PROGRESS BAR ---
     m_uploadProgressBar = new QProgressBar(this);
     m_uploadProgressBar->setVisible(false);
@@ -90,12 +90,12 @@ void ServerChatWindow::onUserListItemClicked(QListWidgetItem *item)
 {
     if (item) {
         QString userId = item->text();
-        
+
         // Check if it's the broadcast option
         if (userId.contains("همه کاربران") || userId.contains("📢")) {
             setBroadcastMode();
             emit userSelected("همه کاربران");
-        } 
+        }
         // Check if it's the separator
         else if (userId.contains("──────")) {
             // Do nothing for separator
@@ -122,6 +122,9 @@ void ServerChatWindow::onBroadcastModeClicked()
 void ServerChatWindow::showMessage(const QString &msg)
 {
     if(msg.isEmpty()) return;
+
+    // --- FIX: Declare senderInfo here to be in scope for the whole function ---
+    QString senderInfo = "";
 
     // Check if msg is a URL to an image
     if (msg.startsWith("http://") || msg.startsWith("https://")) {
@@ -153,36 +156,101 @@ void ServerChatWindow::showMessage(const QString &msg)
             ui->chatHistoryWdgt->addItem(item);
             ui->chatHistoryWdgt->setItemWidget(item, urlLabel);
         }
-  } else {
-        // Parse message format: "[HH:mm:] Sender: message text"
-        QString senderInfo;
-        QString messageText;
-        
-        QRegularExpression rx("^\\[([^\\]]+)\\]\\s*(.+?):\\s*(.*)$");
-        QRegularExpressionMatch match = rx.match(msg);
-        
-        if (match.hasMatch()) {
-            QString time = match.captured(1);
-            QString sender = match.captured(2);
-            messageText = match.captured(3);
-            senderInfo = QString("[%1] %2").arg(time, sender);
-        } else {
-            // If parsing fails, use the whole message as text
-            messageText = msg;
-        }
-        
-        // Create TextMessageItem widget
-        TextMessageItem *textItem = new TextMessageItem(messageText, senderInfo, TextMessageItem::Received, this);
+    } else {
+        // --- UPDATED LOGIC TO HANDLE HISTORICAL AND NEW MESSAGES ---
 
-        // Add to list
-        QListWidgetItem *item = new QListWidgetItem();
-        ui->chatHistoryWdgt->addItem(item);
-        ui->chatHistoryWdgt->setItemWidget(item, textItem);
-        
-        item->setSizeHint(textItem->sizeHint()); 
-        ui->chatHistoryWdgt->scrollToBottom();
+        // --- FIX: senderInfo is already declared above ---
+        QString messageText;
+        QString sender; // Just the sender part, e.g., "You", "Server", "کاربر شماره 1"
+        QString time;   // The timestamp
+
+        // Regex 1: [Time] Sender: Message (for new messages from controller)
+        QRegularExpression rx_new("^\\[([^\\]]+)\\]\\s*(.+?):\\s*(.*)$");
+        // Regex 2: [Time] Sender -> Receiver: Message (for historical messages from DB)
+        QRegularExpression rx_hist("^\\[([^\\]]+)\\]\\s*([^\\s]+)\\s*->\\s*([^:]+):\\s*(.*)$");
+
+        QRegularExpressionMatch match_hist = rx_hist.match(msg);
+        QRegularExpressionMatch match_new = rx_new.match(msg);
+
+        if (match_hist.hasMatch()) {
+            // Historical format: [Time] Sender -> Receiver: Message
+            time = match_hist.captured(1);
+            sender = match_hist.captured(2); // "Server" or "کاربر شماره 1"
+            QString receiver = match_hist.captured(3); // "All" or "Server"
+            messageText = match_hist.captured(4); // "Hello" or "FILE|..."
+
+            // --- FIX: Remove "-> Server" but keep "-> All" etc. ---
+            if (receiver == "Server") {
+                senderInfo = QString("[%1] %2").arg(time, sender); // [10:51] کاربر 1
+            } else {
+                senderInfo = QString("[%1] %2 -> %3").arg(time, sender, receiver); // [10:51] Server -> All
+            }
+            // --- END FIX ---
+
+        } else if (match_new.hasMatch()) {
+            // New format: [Time] Sender: Message
+            time = match_new.captured(1);
+            sender = match_new.captured(2); // "You (to all)" or "کاربر شماره 1"
+            messageText = match_new.captured(3); // "Hello" or "FILE|..."
+
+            // --- FIX: Clean up "You (to all)" ---
+            if (sender.contains(" (to")) {
+                sender = sender.split(" (to").first().trimmed(); // "You"
+            }
+            senderInfo = QString("[%1] %2").arg(time, sender); // Rebuild senderInfo
+            // --- END FIX ---
+
+        } else {
+            // Fallback
+            messageText = msg;
+            senderInfo = "";
+            sender = "";
+        }
+
+        // Check if the *messageText* is a file
+        if (messageText.startsWith("FILE|")) {
+            QStringList parts = messageText.split("|");
+            if (parts.size() >= 4) {
+                QString fileName = parts[1];
+                qint64 fileSize = parts[2].toLongLong();
+                QString fileUrl = parts[3];
+                // Call the *other* function to handle file display
+                // Pass the *CLEANED* senderInfo
+                showFileMessage(fileName, fileSize, fileUrl, senderInfo);
+            }
+        } else {
+            // It's a regular text message
+
+            // Determine type based on sender name
+            TextMessageItem::MessageType type;
+            if (sender == "Server" || sender == "You") {
+                type = TextMessageItem::Sent;
+            } else {
+                type = TextMessageItem::Received;
+            }
+
+            // Create TextMessageItem widget
+            // Pass the *CLEANED* senderInfo
+            TextMessageItem *textItem = new TextMessageItem(messageText, senderInfo, type, this);
+
+            // Add to list
+            QListWidgetItem *item = new QListWidgetItem();
+
+            // Set the size hint for the item to match the widget's calculated height
+            item->setSizeHint(textItem->sizeHint());
+
+            ui->chatHistoryWdgt->addItem(item);
+            ui->chatHistoryWdgt->setItemWidget(item, textItem);
+
+            ui->chatHistoryWdgt->scrollToBottom();
+        }
+        // --- END UPDATED LOGIC ---
     }
-    ui->typeMessageTxt->clear();
+
+    // Only clear text if it was a "You" message
+    if (senderInfo.contains("You")) {
+        ui->typeMessageTxt->clear();
+    }
 }
 
 void ServerChatWindow::showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo)
@@ -195,28 +263,60 @@ void ServerChatWindow::showFileMessage(const QString &fileName, qint64 fileSize,
     mainLayout->setContentsMargins(5, 5, 5, 5);
     mainLayout->setSpacing(2);
 
-    // Add sender info label
+    // Add sender info label (it's already clean from showMessage)
     QLabel *senderLabel = new QLabel(senderInfo);
     senderLabel->setStyleSheet("font-size: 10px; color: #666; margin-bottom: 2px;");
-    mainLayout->addWidget(senderLabel, 0, Qt::AlignLeft);
+
+    // --- FIX: Align sender label based on "You" or "Server" ---
+    // We need to parse the sender from the (now clean) senderInfo
+    QString sender = "";
+    // Format is now either "[Time] Sender" or "[Time] Sender -> All"
+    QRegularExpression rx_clean("^\\[([^\\]]+)\\]\\s*([^\\s]+).*$"); // Gets the first word after [Time]
+    QRegularExpressionMatch match_clean = rx_clean.match(senderInfo);
+    if (match_clean.hasMatch()) {
+        sender = match_clean.captured(2); // "You", "Server", "کاربر"
+    }
+
+    bool isSent = (sender == "Server" || sender == "You");
+
+    if (isSent) {
+        mainLayout->addWidget(senderLabel, 0, Qt::AlignLeft); // Align left (renders right in RTL)
+    } else {
+        mainLayout->addWidget(senderLabel, 0, Qt::AlignRight); // Align right (renders left in RTL)
+    }
+    // --- END FIX ---
 
     // Add file message item
     FileMessageItem *fileItem = new FileMessageItem(fileName, fileSize, fileUrl, senderInfo, messageWidget);
-    mainLayout->addWidget(fileItem, 0, Qt::AlignLeft);
+
+    // --- FIX: Align the FileMessageItem itself ---
+    if (isSent) {
+        mainLayout->addWidget(fileItem, 0, Qt::AlignLeft);
+    } else {
+        mainLayout->addWidget(fileItem, 0, Qt::AlignRight);
+    }
+    // --- END FIX ---
 
     QListWidgetItem *item = new QListWidgetItem();
+
+    // Set the size hint for the item to match the widget's calculated height
     item->setSizeHint(messageWidget->sizeHint());
+
     ui->chatHistoryWdgt->addItem(item);
     ui->chatHistoryWdgt->setItemWidget(item, messageWidget);
 
     ui->chatHistoryWdgt->scrollToBottom();
-    ui->typeMessageTxt->clear();
+
+    // Only clear text if it was a "You" message
+    if (senderInfo.contains("You")) {
+        ui->typeMessageTxt->clear();
+    }
 }
 
 void ServerChatWindow::updateUserList(const QStringList &users)
 {
     ui->userListWdgt->clear();
-    
+
     // Add "Broadcast to All" option at the top
     QListWidgetItem *broadcastItem = new QListWidgetItem("📢 همه کاربران (پخش عمومی)");
     QFont font = broadcastItem->font();
@@ -224,13 +324,13 @@ void ServerChatWindow::updateUserList(const QStringList &users)
     broadcastItem->setFont(font);
     broadcastItem->setForeground(QColor("#075e54"));
     ui->userListWdgt->addItem(broadcastItem);
-    
+
     // Add separator
     QListWidgetItem *separator = new QListWidgetItem("──────────────");
     separator->setFlags(separator->flags() & ~Qt::ItemIsSelectable);
     separator->setForeground(QColor("#cccccc"));
     ui->userListWdgt->addItem(separator);
-    
+
     // Add individual users
     for (const QString &user : users) {
         ui->userListWdgt->addItem("👤 " + user);
@@ -246,14 +346,14 @@ void ServerChatWindow::setPrivateChatMode(const QString &userId)
 {
     m_isPrivateChat = true;
     m_currentTargetUser = userId;
-    
+
     // Update UI to show private chat mode
     ui->chatTitleLabel->setText(QString("گفتگوی خصوصی با %1").arg(userId));
     ui->chatTitleLabel->setStyleSheet("font-size: 14pt; font-weight: bold; padding: 0px; color: #ffffff;");
-    
+
     ui->chatSubtitleLabel->setText("فقط این کاربر پیام‌های شما را می‌بیند");
     ui->chatSubtitleLabel->setStyleSheet("font-size: 10pt; padding: 2px; color: #ffffff;");
-    
+
     // Find the chatHeader widget and change its color to indicate private mode
     QWidget *header = this->findChild<QWidget*>("chatHeader");
     if (header) {
@@ -262,9 +362,9 @@ void ServerChatWindow::setPrivateChatMode(const QString &userId)
             "    background-color: #075e54;"
             "    border-bottom: 1px solid #0066cc;"
             "}"
-        );
+            );
     }
-    
+
     qDebug() << "Switched to private chat with:" << userId;
 }
 
@@ -272,14 +372,14 @@ void ServerChatWindow::setBroadcastMode()
 {
     m_isPrivateChat = false;
     m_currentTargetUser = "";
-    
+
     // Update UI to show broadcast mode
     ui->chatTitleLabel->setText("گفتگوی عمومی");
     ui->chatTitleLabel->setStyleSheet("font-size: 14pt; font-weight: bold; padding: 0px; color: #ffffff;");
-    
+
     ui->chatSubtitleLabel->setText("پیام‌های شما به همه ارسال می‌شود");
     ui->chatSubtitleLabel->setStyleSheet("font-size: 10pt; padding: 2px; color: #ffffff;");
-    
+
     // Find the chatHeader widget and reset to green color
     QWidget *header = this->findChild<QWidget*>("chatHeader");
     if (header) {
@@ -288,9 +388,9 @@ void ServerChatWindow::setBroadcastMode()
             "    background-color: #075e54;"
             "    border-bottom: 1px solid #055346;"
             "}"
-        );
+            );
     }
-    
+
     qDebug() << "Switched to broadcast mode";
 }
 
@@ -321,41 +421,41 @@ void ServerChatWindow::onSendFileClicked()
     if (filePath.isEmpty()) {
         return;
     }
-    
+
     // This is the server you started with ./tusd
     QUrl tusEndpoint("http://localhost:1080/files/");
 
     TusUploader *uploader = new TusUploader(this);
 
     // --- Connect signals from the uploader ---
-    
+
     connect(uploader, &TusUploader::finished, this, [=](const QString &uploadUrl, qint64 fileSize) {
         m_uploadProgressBar->setVisible(false);
         emit fileUploaded(QFileInfo(filePath).fileName(), uploadUrl, fileSize);
         uploader->deleteLater();
     });
-    
+
     connect(uploader, &TusUploader::error, this, [=](const QString &error) {
         m_uploadProgressBar->setVisible(false);
         uploader->deleteLater();
     });
-    
+
     connect(uploader, &TusUploader::uploadProgress, this, [=](qint64 sent, qint64 total) {
         if (!m_uploadProgressBar->isVisible()) {
             m_uploadProgressBar->setVisible(true);
         }
         // Update progress bar
         if(m_uploadProgressBar->maximum() != total) {
-             m_uploadProgressBar->setMaximum(total);
+            m_uploadProgressBar->setMaximum(total);
         }
         m_uploadProgressBar->setValue(sent);
-        
+
         if (total > 0) {
             double percent = (static_cast<double>(sent) / static_cast<double>(total)) * 100.0;
             m_uploadProgressBar->setFormat(QString("Uploading... %1%").arg(percent, 0, 'f', 1));
         }
     });
-    
+
     // --- Start the upload ---
     qDebug() << "Starting upload of" << filePath;
     uploader->startUpload(filePath, tusEndpoint);
@@ -370,3 +470,4 @@ void ServerChatWindow::handleFileUpload()
 {
     onSendFileClicked();
 }
+

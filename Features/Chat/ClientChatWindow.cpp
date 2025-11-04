@@ -128,30 +128,68 @@ void ClientChatWindow::showMessage(const QString &msg)
             }
         } else {
             // Parse message format: "[HH:mm:] Sender: message text"
+            // --- UPDATED LOGIC TO HANDLE HISTORICAL AND NEW MESSAGES ---
+
             QString senderInfo;
             QString messageText;
+            QString sender; // Just the sender part, e.g., "You", "Server"
+
+            // Regex 1: [Time] Sender: Message (for new messages from controller AND historical)
+            QRegularExpression rx_new("^\\[([^\\]]+)\\]\\s*(.+?):\\s*(.*)$");
             
-            QRegularExpression rx("^\\[([^\\]]+)\\]\\s*(.+?):\\s*(.*)$");
-            QRegularExpressionMatch match = rx.match(msg);
-            
-            if (match.hasMatch()) {
-                QString time = match.captured(1);
-                QString sender = match.captured(2);
-                messageText = match.captured(3);
+            QRegularExpressionMatch match_new = rx_new.match(msg);
+
+            if (match_new.hasMatch()) {
+                // Format: [Time] Sender: Message
+                QString time = match_new.captured(1);
+                sender = match_new.captured(2); // "You" or "Server"
+                messageText = match_new.captured(3); // "Hello" or "FILE|..."
                 senderInfo = QString("[%1] %2").arg(time, sender);
             } else {
-                // If parsing fails, use the whole message as text
+                // Fallback
                 messageText = msg;
+                senderInfo = "";
+                sender = "";
             }
-            
-            // Use TextMessageItem widget
-            TextMessageItem *textItem = new TextMessageItem(messageText, senderInfo, TextMessageItem::Received, this);
-            
-            QListWidgetItem *item = new QListWidgetItem();
-            ui->chatHistoryWdgt->addItem(item);
-            ui->chatHistoryWdgt->setItemWidget(item, textItem);
-            item->setSizeHint(textItem->sizeHint());
-            ui->chatHistoryWdgt->scrollToBottom();
+
+            // Check if the *messageText* is a file
+            if (messageText.startsWith("FILE|")) {
+                QStringList parts = messageText.split("|");
+                if (parts.size() >= 4) {
+                    QString fileName = parts[1];
+                    qint64 fileSize = parts[2].toLongLong();
+                    QString fileUrl = parts[3];
+                    // Call the *other* function to handle file display
+                    // Pass the full senderInfo, e.g., "[12:34] Server"
+                    showFileMessage(fileName, fileSize, fileUrl, senderInfo); 
+                }
+            } else {
+                // It's a regular text message
+                
+                // --- FIX: Determine type based on sender name ---
+                TextMessageItem::MessageType type;
+                if (sender.contains("You")) { // Client only sees "You" or "Server"
+                    type = TextMessageItem::Sent;
+                } else {
+                    type = TextMessageItem::Received;
+                }
+                // --- END FIX ---
+                
+                // Use TextMessageItem widget
+                TextMessageItem *textItem = new TextMessageItem(messageText, senderInfo, type, this);
+                
+                QListWidgetItem *item = new QListWidgetItem();
+                
+                // --- THIS IS THE FIX (STEP 2) ---
+                // Set the size hint for the item to match the widget's calculated height
+                item->setSizeHint(textItem->sizeHint());
+                // --- END OF FIX ---
+                
+                ui->chatHistoryWdgt->addItem(item);
+                ui->chatHistoryWdgt->setItemWidget(item, textItem);
+                ui->chatHistoryWdgt->scrollToBottom();
+            }
+            // --- END UPDATED LOGIC ---
         }
         ui->typeMessageTxt->clear();
     }
@@ -171,14 +209,29 @@ void ClientChatWindow::showFileMessage(const QString &fileName, qint64 fileSize,
     // Add sender info label
     QLabel *senderLabel = new QLabel(senderInfo);
     senderLabel->setStyleSheet("font-size: 10px; color: #666; margin-bottom: 2px;");
-    mainLayout->addWidget(senderLabel, 0, Qt::AlignLeft);
+
+    // --- FIX: Align sender label based on "You" ---
+    // A message is "Sent" if senderInfo contains "You"
+    bool isSent = senderInfo.contains("You");
+    
+    if (isSent) {
+         mainLayout->addWidget(senderLabel, 0, Qt::AlignLeft); // Align left (renders right in RTL)
+    } else {
+         mainLayout->addWidget(senderLabel, 0, Qt::AlignRight); // Align right (renders left in RTL)
+    }
+    // --- END FIX ---
 
     // Add file message item
     FileMessageItem *fileItem = new FileMessageItem(fileName, fileSize, fileUrl, senderInfo, messageWidget);
     mainLayout->addWidget(fileItem, 0, Qt::AlignLeft);
 
     QListWidgetItem *item = new QListWidgetItem();
+    
+    // --- THIS IS THE FIX (STEP 2) ---
+    // Set the size hint for the item to match the widget's calculated height
     item->setSizeHint(messageWidget->sizeHint());
+    // --- END OF FIX ---
+
     ui->chatHistoryWdgt->addItem(item);
     ui->chatHistoryWdgt->setItemWidget(item, messageWidget);
 
@@ -254,3 +307,4 @@ void ClientChatWindow::handleFileUpload()
 {
     onSendFileClicked();
 }
+

@@ -18,7 +18,7 @@ class ServerChatWindow : public BaseChatWindow
 public:
     ServerChatWindow(QWidget *parent = nullptr);
     ~ServerChatWindow();
-    
+
 signals:
     void userSelected(const QString &userId);
     void restartServerRequested();
@@ -27,7 +27,7 @@ protected:
     void handleSendMessage() override;
     void handleFileUpload() override;
     bool eventFilter(QObject *obj, QEvent *event) override;
-    
+
 private slots:
     void onsendMessageBtnclicked();
     void onchatHistoryWdgtitemClicked(QListWidgetItem *item);
