@@ -41,6 +41,8 @@ set(PROJECT_SOURCES
     # --- ADD NEW COMPONENT FILES ---
     Components/InfoCard.cpp
     Components/InfoCard.h
+    Components/MessageBubble.cpp
+    Components/MessageBubble.h
     # --- END ADD ---
 
     Features/Chat/ChatController.cpp
@@ -59,7 +61,6 @@ set(PROJECT_SOURCES
     Features/Chat/FileMessageItem.h
     Features/Chat/TextMessageItem.cpp
     Features/Chat/TextMessageItem.h
-    Features/Chat/TextMessageItem.ui
 
     Features/Connection/ConnectPage.cpp
     Features/Connection/ConnectPage.h
@@ -72,9 +73,6 @@ set(PROJECT_SOURCES
     Features/FileTransfer/TusDownloader.h
     Features/FileTransfer/TusDownloader.cpp
 )
-
-find_package(Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS Core)
 
 add_executable(ClientApp ${PROJECT_SOURCES}
     Core/CryptoManager.h Core/CryptoManager.cpp)
@@ -117,8 +115,6 @@ if(WIN32 OR MINGW)
         wsock32
         winmm
     )
-target_link_libraries(ClientApp PRIVATE Qt6::Core)
-target_link_libraries(ClientApp PRIVATE Qt6::Core)
 else()
     set_target_properties(ClientApp PROPERTIES
         OUTPUT_NAME "ClientApp"

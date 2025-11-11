@@ -3,11 +3,8 @@
 
 #include "BaseMessageItem.h"
 #include "BaseChatWindow.h"
+#include "MessageBubble.h"
 #include <QString>
-
-namespace Ui {
-class TextMessageItem;
-}
 
 class TextMessageItem : public BaseMessageItem
 {
@@ -22,9 +19,10 @@ public:
 
 protected:
     void setupUI() override;
+    void applyStyles();  // New method to apply styling to the MessageBubble
 
 private:
-    Ui::TextMessageItem *ui;
+    MessageBubble *m_bubble;
     QString m_messageText;
     MessageType m_messageType;
 };
