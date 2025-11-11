@@ -2,18 +2,22 @@
 #define FILEMESSAGEITEM_H
 
 #include "BaseMessageItem.h"
+#include "BaseChatWindow.h"
+#include "../FileTransfer/TusDownloader.h"
+#include "../../Components/InfoCard.h" // <-- Include the new component
 #include <QString>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QProgressBar>
-#include <QPushButton>
+#include <QFileIconProvider> // <-- Include for icon provider
 
 class FileMessageItem : public BaseMessageItem
 {
     Q_OBJECT
 
 public:
-    explicit FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo = "", QWidget *parent = nullptr);
+    using MessageType = BaseChatWindow::MessageType;
+
+    explicit FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl,
+                             const QString &senderInfo, MessageType type, 
+                             const QString &serverHost = "localhost", QWidget *parent = nullptr);
     ~FileMessageItem();
 
 protected:
@@ -21,23 +25,25 @@ protected:
 
 private slots:
     void downloadFile();
-    void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
-    void onDownloadFinished();
-    void onDownloadError(QNetworkReply::NetworkError code);
     void openFile();
+    
+    // Slots for TusDownloader
+    void onDownloadFinished(const QString &filePath);
+    void onDownloadError(const QString &errorMessage);
 
 private:
-    void setupFileUI(const QString &fileName, qint64 fileSize);
-    QPixmap getFileIconPixmap(const QString &extension);
+    QPixmap getFileIconPixmap(const QString &fileName); // Changed parameter
     QString formatSize(qint64 bytes);
 
+    // --- Member variables ---
+    InfoCard* m_infoCard; // <-- Use InfoCard as the UI
+    TusDownloader *m_tusDownloader;
+    
     QString m_fileUrl;
     QString m_fileName;
     qint64 m_fileSize;
-    QNetworkAccessManager *m_networkManager;
-    QNetworkReply *m_reply;
-    QPushButton *m_downloadButton;
-    QProgressBar *m_progressBar;
+    MessageType m_messageType;
+    QString m_serverHost; 
 };
 
 #endif // FILEMESSAGEITEM_H

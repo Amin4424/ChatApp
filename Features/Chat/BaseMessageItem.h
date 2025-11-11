@@ -13,10 +13,11 @@ public:
     virtual ~BaseMessageItem();
 
 protected:
-    QString m_senderInfo;
-    
-    // Virtual method for subclasses to implement their specific UI setup
+    // Pure virtual function that derived classes must implement
     virtual void setupUI() = 0;
+    
+    // Common data
+    QString m_senderInfo;
 };
 
 #endif // BASEMESSAGEITEM_H

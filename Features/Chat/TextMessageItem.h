@@ -2,6 +2,7 @@
 #define TEXTMESSAGEITEM_H
 
 #include "BaseMessageItem.h"
+#include "BaseChatWindow.h"
 #include <QString>
 
 namespace Ui {
@@ -13,12 +14,10 @@ class TextMessageItem : public BaseMessageItem
     Q_OBJECT
 
 public:
-    enum MessageType {
-        Received,
-        Sent
-    };
+    // Use the MessageType from BaseChatWindow
+    using MessageType = BaseChatWindow::MessageType;
 
-    explicit TextMessageItem(const QString &messageText, const QString &senderInfo = "", MessageType type = Received, QWidget *parent = nullptr);
+    explicit TextMessageItem(const QString &messageText, const QString &senderInfo = "", MessageType type = MessageType::Received, QWidget *parent = nullptr);
     ~TextMessageItem();
 
 protected:

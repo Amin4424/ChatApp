@@ -19,6 +19,9 @@ endif()
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core WebSockets Widgets Sql Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core WebSockets Widgets Sql Network)
 
+# Find OpenSSL
+find_package(OpenSSL REQUIRED)
+
 # ---
 # This list now matches your project tree exactly
 # ---
@@ -35,6 +38,11 @@ set(PROJECT_SOURCES
     Core/DatabaseManager.cpp
     Core/DatabaseManager.h
 
+    # --- ADD NEW COMPONENT FILES ---
+    Components/InfoCard.cpp
+    Components/InfoCard.h
+    # --- END ADD ---
+
     Features/Chat/ChatController.cpp
     Features/Chat/ChatController.h
     Features/Chat/BaseChatWindow.cpp
@@ -49,6 +57,9 @@ set(PROJECT_SOURCES
     Features/Chat/BaseMessageItem.h
     Features/Chat/FileMessageItem.cpp
     Features/Chat/FileMessageItem.h
+    Features/Chat/TextMessageItem.cpp
+    Features/Chat/TextMessageItem.h
+    Features/Chat/TextMessageItem.ui
 
     Features/Connection/ConnectPage.cpp
     Features/Connection/ConnectPage.h
@@ -58,24 +69,26 @@ set(PROJECT_SOURCES
 
     Features/FileTransfer/TusUploader.h
     Features/FileTransfer/TusUploader.cpp
+    Features/FileTransfer/TusDownloader.h
+    Features/FileTransfer/TusDownloader.cpp
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 add_executable(ClientApp ${PROJECT_SOURCES}
-     Features/FileTransfer/TusUploader.h  Features/FileTransfer/TusUploader.cpp
-     Features/Chat/TextMessageItem.h Features/Chat/TextMessageItem.cpp Features/Chat/TextMessageItem.ui)
+    Core/CryptoManager.h Core/CryptoManager.cpp)
 
-# ---
-# This tells the compiler where to find your headers
-# ---
+
+
 target_include_directories(ClientApp PRIVATE
-    # This line is CRITICAL for finding ui_chatwindow.h
     ${CMAKE_CURRENT_BINARY_DIR}
-
+    ${OPENSSL_INCLUDE_DIR}
     Core
     Features/Chat
     Features/Connection
+    Features/FileTransfer
+    Components
 )
 
 # ---
@@ -87,6 +100,8 @@ target_link_libraries(ClientApp PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Sql
     Qt${QT_VERSION_MAJOR}::Network
+    OpenSSL::SSL
+    OpenSSL::Crypto
 )
 
 # Platform-specific output settings
@@ -102,6 +117,7 @@ if(WIN32 OR MINGW)
         wsock32
         winmm
     )
+target_link_libraries(ClientApp PRIVATE Qt6::Core)
 target_link_libraries(ClientApp PRIVATE Qt6::Core)
 else()
     set_target_properties(ClientApp PROPERTIES

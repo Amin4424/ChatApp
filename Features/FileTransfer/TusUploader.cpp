@@ -6,7 +6,9 @@ TusUploader::TusUploader(QObject *parent)
     m_file(nullptr),
     m_fileSize(0),
     m_bytesUploaded(0),
-    m_reply(nullptr)
+    m_reply(nullptr),
+    m_encryptionEnabled(false),
+    m_currentChunkIndex(0)
 {
     m_manager = new QNetworkAccessManager(this);
 }
@@ -19,8 +21,28 @@ TusUploader::~TusUploader()
     }
 }
 
-void TusUploader::startUpload(const QString &filePath, const QUrl &tusEndpoint)
+void TusUploader::setEncryptionKey(const QByteArray &key)
 {
+    if (key.size() != 32) {
+        qWarning() << "TusUploader: Encryption key must be 32 bytes for AES-256";
+        return;
+    }
+    m_encryptionKey = key;
+    qDebug() << "TusUploader: Encryption key set";
+}
+
+void TusUploader::startUpload(const QString &filePath, const QUrl &tusEndpoint, bool encrypt)
+{
+    m_encryptionEnabled = encrypt;
+    m_currentChunkIndex = 0;
+    m_chunkMetadata.clear();
+
+    if (m_encryptionEnabled && m_encryptionKey.size() != 32) {
+        // Generate a key if encryption is enabled but no key is set
+        m_encryptionKey = CryptoManager::generateAES256Key();
+        qDebug() << "TusUploader: Generated new encryption key";
+    }
+
     m_file = new QFile(filePath);
     if (!m_file->open(QIODevice::ReadOnly)) {
         emit error("Failed to open file: " + m_file->errorString());
@@ -28,7 +50,10 @@ void TusUploader::startUpload(const QString &filePath, const QUrl &tusEndpoint)
     }
 
     m_fileSize = m_file->size();
-    m_uploadUrl = tusEndpoint; // This is the main endpoint, e.g., http://localhost:1080/files/
+    m_uploadUrl = tusEndpoint; // This is the main endpoint, e.g., http://192.168.1.10:1080/files/
+
+    qDebug() << "TusUploader: Starting upload" 
+             << (m_encryptionEnabled ? "WITH ENCRYPTION" : "without encryption");
 
     // Step 1: Create the upload resource on the server
     createUpload();
@@ -75,8 +100,12 @@ void TusUploader::onUploadCreated()
         return;
     }
 
+    // --- FIX: Store the relative path, not the full resolved URL ---
     // Get the new unique URL for this upload
-    m_uploadUrl = m_reply->url().resolved(QUrl(QString::fromUtf8(m_reply->rawHeader("Location"))));
+    // m_uploadUrl = m_reply->url().resolved(QUrl(QString::fromUtf8(m_reply->rawHeader("Location"))));
+    m_uploadUrl = QUrl(QString::fromUtf8(m_reply->rawHeader("Location")));
+    // --- END FIX ---
+    
     m_reply->deleteLater();
 
     qDebug() << "Tus: Upload created at" << m_uploadUrl.toString();
@@ -92,8 +121,28 @@ void TusUploader::uploadChunk()
     if (chunk.isEmpty() && m_bytesUploaded != m_fileSize) {
         // This can happen if read() fails but not at end
         qDebug() << "Tus: Read failed, but not at end.";
-        // Don't emit finished() here, let error handler take it
         return;
+    }
+
+    QByteArray dataToUpload = chunk;
+
+    // Encrypt chunk if encryption is enabled
+    if (m_encryptionEnabled && !chunk.isEmpty()) {
+        ChunkMetadata metadata;
+        metadata.chunkIndex = m_currentChunkIndex++;
+
+        QByteArray encryptedChunk;
+        if (!CryptoManager::encryptChunk(chunk, m_encryptionKey, encryptedChunk, metadata)) {
+            emit error("Failed to encrypt chunk");
+            return;
+        }
+
+        m_chunkMetadata.append(metadata);
+        dataToUpload = encryptedChunk;
+
+        qDebug() << "Tus: Encrypted chunk" << metadata.chunkIndex 
+                 << "- Original:" << chunk.size() 
+                 << "Encrypted:" << encryptedChunk.size();
     }
 
     QNetworkRequest request(m_uploadUrl);
@@ -101,13 +150,12 @@ void TusUploader::uploadChunk()
     request.setRawHeader("Upload-Offset", QByteArray::number(m_bytesUploaded));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/offset+octet-stream");
 
-    qDebug() << "Tus: Sending chunk, offset" << m_bytesUploaded << "size" << chunk.size();
+    qDebug() << "Tus: Sending chunk, offset" << m_bytesUploaded << "size" << dataToUpload.size();
 
-    m_reply = m_manager->sendCustomRequest(request, "PATCH", chunk); // Send chunk with PATCH
+    m_reply = m_manager->sendCustomRequest(request, "PATCH", dataToUpload); // Send chunk with PATCH
 
     connect(m_reply, &QNetworkReply::finished, this, &TusUploader::onChunkUploaded);
     connect(m_reply, &QNetworkReply::uploadProgress, this, [=](qint64 sent, qint64 total){
-        // We emit progress based on total file size, not chunk size
         if (total > 0) {
             emit uploadProgress(m_bytesUploaded + sent, m_fileSize);
         }
@@ -130,7 +178,6 @@ void TusUploader::onChunkUploaded()
         return;
     }
 
-    // Check the offset returned by the server
     if (!m_reply->hasRawHeader("Upload-Offset")) {
         emit error("Tus: Chunk upload failed. Server did not return Upload-Offset.");
         m_reply->deleteLater();
@@ -147,7 +194,19 @@ void TusUploader::onChunkUploaded()
         qDebug() << "Tus: Upload finished.";
         m_file->close();
         emit uploadProgress(m_fileSize, m_fileSize);
-        emit finished(m_uploadUrl.toString(), m_fileSize);
+        
+        // Serialize encryption metadata if encryption was used
+        QByteArray metadata;
+        if (m_encryptionEnabled) {
+            metadata = CryptoManager::serializeMetadata(m_chunkMetadata);
+            qDebug() << "Tus: Upload completed with encryption -" 
+                     << m_chunkMetadata.size() << "chunks, metadata size:" << metadata.size() << "bytes";
+        }
+        
+        // --- FIX: Emit the *path* only, not the full URL ---
+        emit finished(m_uploadUrl.path(), m_fileSize, metadata);
+        // --- END FIX ---
+        
     } else {
         // Send the next chunk
         uploadChunk();
@@ -156,9 +215,6 @@ void TusUploader::onChunkUploaded()
 
 void TusUploader::onUploadError(QNetworkReply::NetworkError code)
 {
-    // A real implementation would check for resumable errors (like 409 Conflict)
-    // and try to resume using a HEAD request.
-    // For now, we will just error out.
     QString errorMsg = m_reply->errorString();
     qDebug() << "Tus: Network Error" << code << errorMsg;
     emit error(errorMsg);

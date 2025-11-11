@@ -5,6 +5,7 @@
 #include <QStandardPaths>
 #include <QProcess>
 #include <QThread>
+#include <QCoreApplication>
 
 TusServer::TusServer(QObject *parent)
     : QObject(parent)
@@ -77,17 +78,27 @@ bool TusServer::start(quint16 port, const QString &uploadDir)
     // Kill any existing processes using the port
     killExistingProcessOnPort(port);
 
-    QString tusdPath = "/home/amin/Desktop/tusd_linux_amd64/tusd_linux_amd64/tusd";
-    QString workingDir = QDir::homePath() + "/Desktop/tusd_linux_amd64/tusd_linux_amd64";
-    QStringList arguments;
-    arguments << "-host" << "0.0.0.0" << "-port" << QString::number(port) << "-upload-dir" << uploadDir;
-
+    // Look for tusd in the same directory as the executable
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString tusdPath = appDir + "/tusd";
+    
+    qDebug() << "Looking for tusd at:" << tusdPath;
+    
+    // If not found, return silently (no error)
     if (!QFile::exists(tusdPath)) {
-        QString errorMsg = "TUS binary not found at: " + tusdPath;
-        qCritical() << errorMsg;
-        emit errorOccurred(errorMsg);
+        qWarning() << "tusd binary not found at:" << tusdPath << "- File upload will not work without tusd server";
         return false;
     }
+    
+    qDebug() << "✓ Found tusd binary at:" << tusdPath;
+
+    // Create uploads directory if it doesn't exist
+    QString fullUploadDir = appDir + "/" + uploadDir;
+    QDir().mkpath(fullUploadDir);
+    
+    QString workingDir = appDir;
+    QStringList arguments;
+    arguments << "-host" << "0.0.0.0" << "-port" << QString::number(port) << "-upload-dir" << fullUploadDir;
 
     m_process->setWorkingDirectory(workingDir);
     m_process->start(tusdPath, arguments);

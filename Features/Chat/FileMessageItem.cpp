@@ -1,168 +1,96 @@
 #include "FileMessageItem.h"
 #include <QHBoxLayout>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QPixmap>
-#include <QFileInfo>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
+#include <QMessageBox>
 #include <QDesktopServices>
 #include <QUrl>
 #include <QDir>
-#include <QStandardPaths>
-#include <QMessageBox>
-#include <QProgressBar>
-#include <QPushButton>
-#include <QApplication>
+#include <QCoreApplication>
 #include <QStyle>
-#include <QPainter>
+#include <QFileInfo>
 #include <QFileIconProvider>
+#include <QPainter> // Added for drawing file icons
 
-FileMessageItem::FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo, QWidget *parent)
-    : BaseMessageItem(senderInfo, parent), m_fileUrl(fileUrl), m_fileName(fileName), m_fileSize(fileSize)
+FileMessageItem::FileMessageItem(const QString &fileName, qint64 fileSize, const QString &fileUrl,
+                                 const QString &senderInfo, MessageType type, 
+                                 const QString &serverHost, QWidget *parent)
+    : BaseMessageItem(senderInfo, parent),
+      m_fileUrl(fileUrl),
+      m_fileName(fileName),
+      m_fileSize(fileSize),
+      m_messageType(type),
+      m_serverHost(serverHost)
 {
+    // 1. Create the Downloader
+    m_tusDownloader = new TusDownloader(this);
+
+    // 2. Create the UI (InfoCard)
     setupUI();
+
+    // 3. Connect signals
+    
+    // Connect InfoCard's button to *our* downloadFile slot
+    connect(m_infoCard, &InfoCard::buttonClicked, this, &FileMessageItem::downloadFile);
+
+    // Connect TusDownloader signals
+    connect(m_tusDownloader, &TusDownloader::finished, this, &FileMessageItem::onDownloadFinished);
+    connect(m_tusDownloader, &TusDownloader::error, this, &FileMessageItem::onDownloadError);
+    
+    // Connect progress from downloader directly to InfoCard's progress bar slot
+    connect(m_tusDownloader, &TusDownloader::downloadProgress, m_infoCard, &InfoCard::updateProgress);
 }
 
-FileMessageItem::~FileMessageItem() {}
+FileMessageItem::~FileMessageItem()
+{
+    // m_infoCard and m_tusDownloader are children of this, Qt will delete them.
+}
 
 void FileMessageItem::setupUI()
 {
-    setupFileUI(m_fileName, m_fileSize);
-}
+    // 1. Remove any existing layout
+    delete layout(); 
 
-void FileMessageItem::setupFileUI(const QString &fileName, qint64 fileSize)
-{
-    setFixedHeight(120);
-    setStyleSheet(
-        "FileMessageItem {"
-        "    background-color: #f0f0f0;"
-        "    border: 1px solid #ddd;"
-        "    border-radius: 8px;"
-        "    margin: 2px;"
-        "}"
-        "FileMessageItem:hover {"
-        "    background-color: #e8e8e8;"
-        "}"
-    );
-
+    // 2. Create the main horizontal layout (for alignment)
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(10, 5, 10, 5);
-    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(5, 5, 5, 5);
+    mainLayout->setSpacing(0);
 
-    // File icon
-    QLabel *iconLabel = new QLabel();
-    iconLabel->setFixedSize(40, 40);
-    QString extension = QFileInfo(fileName).suffix().toLower();
-    QPixmap iconPixmap = getFileIconPixmap(extension);
-    iconLabel->setPixmap(iconPixmap.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    iconLabel->setAlignment(Qt::AlignCenter);
-    mainLayout->addWidget(iconLabel);
+    // 3. Create and configure the InfoCard
+    m_infoCard = new InfoCard(this);
+    m_infoCard->setTitle(m_senderInfo)
+              ->setFileName(m_fileName)
+              ->setFileSize(formatSize(m_fileSize))
+              ->setIcon(getFileIconPixmap(m_fileName))
+              ->setButtonText("Download")
+              ->showProgressBar(false); // Start with progress bar hidden
+              
+    // Set max width so it wraps inside the chat
+    m_infoCard->setMaximumWidth(450);
 
-    // File info layout
-    QVBoxLayout *infoLayout = new QVBoxLayout();
-    infoLayout->setSpacing(2);
+    // 4. Apply bubble styling (colors, alignment)
+    if (m_messageType == MessageType::Sent) {
+        // --- SENT (Your message) ---
+        m_infoCard->setCardBackgroundColor(QColor("#a0e97e")) // Green bubble
+                   ->setTitleColor(QColor("#666666"))
+                   ->setButtonBackgroundColor(QColor("#075e54"))
+                   ->setButtonTextColor(Qt::white)
+                   ->setProgressBarColor(QColor("#075e54"));
+        
+        // Add bubble first, then spacer to align RIGHT
+        mainLayout->addWidget(m_infoCard);
+        mainLayout->addStretch(1);
 
-    QLabel *nameLabel = new QLabel(fileName);
-    nameLabel->setStyleSheet("font-weight: bold; color: #333; font-size: 12px;");
-    nameLabel->setWordWrap(true);
-    infoLayout->addWidget(nameLabel);
+    } else {
+        // --- RECEIVED (Other's message) ---
+        m_infoCard->setCardBackgroundColor(QColor("#ffffffff")) // White bubble
+                   ->setTitleColor(QColor("#075e54")) // Dark green title
+                   ->setButtonBackgroundColor(QColor("#25d366")) // WhatsApp green button
+                   ->setButtonTextColor(Qt::white)
+                   ->setProgressBarColor(QColor("#25d366"));
 
-    QLabel *sizeLabel = new QLabel(formatSize(fileSize));
-    sizeLabel->setStyleSheet("color: #666; font-size: 10px;");
-    infoLayout->addWidget(sizeLabel);
-
-    mainLayout->addLayout(infoLayout);
-    mainLayout->addStretch();
-
-    // Download button
-    m_downloadButton = new QPushButton("Download");
-    m_downloadButton->setStyleSheet(
-        "QPushButton {"
-        "    background-color: #25d366;"
-        "    color: white;"
-        "    border: none;"
-        "    border-radius: 4px;"
-        "    padding: 5px 10px;"
-        "    font-size: 11px;"
-        "}"
-        "QPushButton:hover {"
-        "    background-color: #20bd5a;"
-        "}"
-        "QPushButton:pressed {"
-        "    background-color: #1da851;"
-        "}"
-        "QPushButton:disabled {"
-        "    background-color: #ccc;"
-        "}"
-    );
-    connect(m_downloadButton, &QPushButton::clicked, this, &FileMessageItem::downloadFile);
-    mainLayout->addWidget(m_downloadButton);
-
-    // Progress bar (initially hidden)
-    m_progressBar = new QProgressBar();
-    m_progressBar->setVisible(false);
-    m_progressBar->setFixedHeight(4);
-    m_progressBar->setStyleSheet(
-        "QProgressBar {"
-        "    border: none;"
-        "    background-color: #ddd;"
-        "}"
-        "QProgressBar::chunk {"
-        "    background-color: #25d366;"
-        "}"
-    );
-    mainLayout->addWidget(m_progressBar);
-
-    // Network manager for downloads
-    m_networkManager = new QNetworkAccessManager(this);
-}
-
-QPixmap FileMessageItem::getFileIconPixmap(const QString &extension)
-{
-    // Try to get system icon for the file type
-    QFileIconProvider iconProvider;
-    QFileInfo fileInfo(QString("dummy.%1").arg(extension));
-    QIcon fileIcon = iconProvider.icon(fileInfo);
-
-    if (!fileIcon.isNull()) {
-        return fileIcon.pixmap(32, 32);
+        // Add spacer first, then bubble to align LEFT
+        mainLayout->addStretch(1);
+        mainLayout->addWidget(m_infoCard);
     }
-
-    // Fallback: create a generic document icon
-    QPixmap pixmap(32, 32);
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
-
-    // Draw a simple document icon
-    painter.setBrush(QColor("#666"));
-    painter.setPen(Qt::NoPen);
-    painter.drawRoundedRect(4, 4, 24, 28, 2, 2);
-
-    // Draw lines to represent text
-    painter.setBrush(QColor("#fff"));
-    painter.setPen(Qt::NoPen);
-    painter.drawRect(8, 10, 16, 2);
-    painter.drawRect(8, 14, 12, 2);
-    painter.drawRect(8, 18, 14, 2);
-
-    return pixmap;
-}
-
-QString FileMessageItem::formatSize(qint64 bytes)
-{
-    const QStringList units = {"B", "KB", "MB", "GB", "TB"};
-    int unitIndex = 0;
-    double size = bytes;
-
-    while (size >= 1024.0 && unitIndex < units.size() - 1) {
-        size /= 1024.0;
-        unitIndex++;
-    }
-
-    return QString("%1 %2").arg(size, 0, 'f', 1).arg(units[unitIndex]);
 }
 
 void FileMessageItem::downloadFile()
@@ -172,107 +100,110 @@ void FileMessageItem::downloadFile()
         return;
     }
 
-    // Create downloads directory if it doesn't exist
-    QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    // Get download path
+    QString downloadDir = QCoreApplication::applicationDirPath() + "/client_downloads";
     QDir dir(downloadDir);
-    if (!dir.exists()) {
-        dir.mkpath(downloadDir);
-    }
-
+    if (!dir.exists()) dir.mkpath(".");
     QString filePath = downloadDir + "/" + m_fileName;
 
-    // Check if file already exists
+    // Check if file exists
     if (QFile::exists(filePath)) {
         QMessageBox::StandardButton reply = QMessageBox::question(
             this, "File Exists",
             QString("File '%1' already exists. Overwrite?").arg(m_fileName),
             QMessageBox::Yes | QMessageBox::No
         );
-
-        if (reply == QMessageBox::No) {
-            return;
-        }
+        if (reply == QMessageBox::No) return;
     }
 
-    // Start download
-    QNetworkRequest request(m_fileUrl);
-    m_reply = m_networkManager->get(request);
+    // Build the correct download URL
+    QString downloadUrlString = m_fileUrl;
+    if (downloadUrlString.contains("localhost") && m_serverHost != "localhost") {
+        downloadUrlString.replace("localhost", m_serverHost);
+    }
+    
+    qDebug() << "FileMessageItem: Starting download from" << downloadUrlString;
 
-    connect(m_reply, &QNetworkReply::downloadProgress, this, &FileMessageItem::onDownloadProgress);
-    connect(m_reply, &QNetworkReply::finished, this, &FileMessageItem::onDownloadFinished);
-    connect(m_reply, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::errorOccurred),
-            this, &FileMessageItem::onDownloadError);
+    // Update UI to "Downloading" state
+    m_infoCard->setButtonText("Downloading...")
+              ->showProgressBar(true)
+              ->setButtonEnabled(false);
 
-    m_downloadButton->setText("Downloading...");
-    m_downloadButton->setEnabled(false);
-    m_progressBar->setVisible(true);
-    m_progressBar->setValue(0);
+    // Start the download
+    m_tusDownloader->startDownload(QUrl(downloadUrlString), filePath);
 }
 
-void FileMessageItem::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
+void FileMessageItem::onDownloadFinished(const QString &filePath)
 {
-    if (bytesTotal > 0) {
-        int percentage = (bytesReceived * 100) / bytesTotal;
-        m_progressBar->setValue(percentage);
-    }
+    QMessageBox::information(this, "Download Complete",
+                             QString("File '%1' downloaded successfully.").arg(m_fileName));
+    
+    // Update UI to "Downloaded" state
+    m_infoCard->setButtonText("Open")
+              ->showProgressBar(false)
+              ->setButtonEnabled(true);
+
+    // Disconnect download slot, connect open slot
+    disconnect(m_infoCard, &InfoCard::buttonClicked, this, &FileMessageItem::downloadFile);
+    connect(m_infoCard, &InfoCard::buttonClicked, this, &FileMessageItem::openFile);
 }
 
-void FileMessageItem::onDownloadFinished()
+void FileMessageItem::onDownloadError(const QString &errorMessage)
 {
-    if (m_reply->error() != QNetworkReply::NoError) {
-        return; // Error handled in onDownloadError
-    }
-
-    QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-    QString filePath = downloadDir + "/" + m_fileName;
-
-    QFile file(filePath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(m_reply->readAll());
-        file.close();
-
-        m_downloadButton->setText("Open");
-        m_downloadButton->setEnabled(true);
-        m_progressBar->setVisible(false);
-
-        // Disconnect download signals and connect open signal
-        disconnect(m_downloadButton, &QPushButton::clicked, this, &FileMessageItem::downloadFile);
-        connect(m_downloadButton, &QPushButton::clicked, this, &FileMessageItem::openFile);
-
-        QMessageBox::information(this, "Download Complete",
-            QString("File '%1' downloaded successfully.").arg(m_fileName));
-    } else {
-        QMessageBox::critical(this, "Error", "Failed to save the downloaded file.");
-        m_downloadButton->setText("Download");
-        m_downloadButton->setEnabled(true);
-        m_progressBar->setVisible(false);
-    }
-
-    m_reply->deleteLater();
-    m_reply = nullptr;
-}
-
-void FileMessageItem::onDownloadError(QNetworkReply::NetworkError code)
-{
-    QMessageBox::critical(this, "Download Error",
-        QString("Failed to download file: %1").arg(m_reply->errorString()));
-
-    m_downloadButton->setText("Download");
-    m_downloadButton->setEnabled(true);
-    m_progressBar->setVisible(false);
-
-    m_reply->deleteLater();
-    m_reply = nullptr;
+    QMessageBox::critical(this, "Download Error", errorMessage);
+    
+    // Update UI back to "Retry" state
+    m_infoCard->setButtonText("Retry")
+              ->showProgressBar(false)
+              ->setButtonEnabled(true);
 }
 
 void FileMessageItem::openFile()
 {
-    QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    QString downloadDir = QCoreApplication::applicationDirPath() + "/client_downloads";
     QString filePath = downloadDir + "/" + m_fileName;
 
-    if (QFile::exists(filePath)) {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
-    } else {
-        QMessageBox::warning(this, "Error", "File not found. It may have been moved or deleted.");
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(filePath))) {
+        QMessageBox::warning(this, "Error", "Could not open file. It may have been moved or deleted.");
     }
+}
+
+// --- Helper Functions ---
+
+QPixmap FileMessageItem::getFileIconPixmap(const QString &fileName)
+{
+    // Use QFileInfo to get system icon
+    QFileInfo fileInfo(fileName);
+    QFileIconProvider iconProvider;
+    QIcon fileIcon = iconProvider.icon(fileInfo);
+    
+    if (!fileIcon.isNull()) {
+        return fileIcon.pixmap(40, 40);
+    }
+
+    // Fallback: create a generic document icon
+    QPixmap pixmap(40, 40);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setBrush(QColor("#666"));
+    painter.setPen(Qt::NoPen);
+    painter.drawRoundedRect(5, 5, 30, 35, 3, 3);
+    painter.setBrush(QColor("#fff"));
+    painter.drawRect(10, 12, 20, 3);
+    painter.drawRect(10, 18, 15, 3);
+    painter.drawRect(10, 24, 18, 3);
+    return pixmap;
+}
+
+QString FileMessageItem::formatSize(qint64 bytes)
+{
+    const QStringList units = {"B", "KB", "MB", "GB", "TB"};
+    int unitIndex = 0;
+    double size = bytes;
+    while (size >= 1024.0 && unitIndex < units.size() - 1) {
+        size /= 1024.0;
+        unitIndex++;
+    }
+    return QString("%1 %2").arg(size, 0, 'f', 1).arg(units[unitIndex]);
 }

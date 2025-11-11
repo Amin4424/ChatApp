@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     
-    // Create UI components
+
     ConnectPage *connectPage = new ConnectPage();
     ClientChatWindow *chatWindow = new ClientChatWindow();  // For clients
     ServerChatWindow *serverChatWindow = new ServerChatWindow();  // For server

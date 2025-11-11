@@ -1,7 +1,9 @@
 #include "WebSocketServer.h"
 #include "TusServer.h"
+#include "CryptoManager.h"
 #include <QDebug>
 #include <QHostAddress>
+#include <QNetworkInterface>
 
 WebSocketServer::WebSocketServer(quint16 port, QObject *parent)
     : QObject(parent)
@@ -19,8 +21,11 @@ WebSocketServer::WebSocketServer(quint16 port, QObject *parent)
     }
 
     // Start TUS (HTTP) server on port 1080
-    if (!m_tusServer->start(1080, "./uploads")) {
-        qWarning() << "Failed to start TUS server alongside WebSocket server";
+    // Note: tusd binary should be in the same directory as the executable
+    if (!m_tusServer->start(1080, "uploads")) {
+        qWarning() << "TUS server not started (tusd binary not found) - File uploads will not work";
+    } else {
+        qDebug() << "✓ TUS server started successfully on port 1080";
     }
 }
 
@@ -66,12 +71,13 @@ void WebSocketServer::onNewConnection()
 
 void WebSocketServer::processMessage(QString message)
 {
+    QString decryptedMessage = CryptoManager::decryptMessage(message);
     QWebSocket *pClient = qobject_cast<QWebSocket *>(sender());
     QString senderId = m_clientIds.value(pClient, "Unknown");
-    qDebug() << "Message received from client" << senderId << ":" << message;
+    qDebug() << "Message received from client" << senderId << ":" << decryptedMessage;
     
     // Emit signal with sender ID so ChatController can display it on server
-    emit messageReceived(message, senderId);
+    emit messageReceived(decryptedMessage, senderId);
     
     // NOTE: Do NOT broadcast to other clients automatically
     // Server will decide whether to send to specific client or broadcast
@@ -92,26 +98,27 @@ void WebSocketServer::socketDisconnected()
     }
 }
 
-void WebSocketServer::sendMessage(const QString &message){
-    if (message.isEmpty()) {
-        qWarning() << "Cannot send empty message";
-        return;
-    }
+// void WebSocketServer::sendMessage(const QString &message){
+//     QString encryptedMessage = CryptoManager::encryptMessage(message);
+//     if (encryptedMessage.isEmpty()) {
+//         qWarning() << "Cannot send empty message";
+//         return;
+//     }
     
-    // Send message to all connected clients
-    bool sentToAny = false;
-    for (QWebSocket *client : m_clients) {
-        if (client && client->state() == QAbstractSocket::ConnectedState) {
-            client->sendTextMessage(message);
-            sentToAny = true;
-            qDebug() << "Message sent to client:" << message;
-        }
-    }
+//     // Send message to all connected clients
+//     bool sentToAny = false;
+//     for (QWebSocket *client : m_clients) {
+//         if (client && client->state() == QAbstractSocket::ConnectedState) {
+//             client->sendTextMessage(encryptedMessage);
+//             sentToAny = true;
+//             qDebug() << "Message sent to client:" << encryptedMessage;
+//         }
+//     }
     
-    if (!sentToAny) {
-        qWarning() << "No connected clients to send message to.";
-    }
-}
+//     if (!sentToAny) {
+//         qWarning() << "No connected clients to send message to.";
+//     }
+// }
 
 void WebSocketServer::updateUserList()
 {
@@ -142,14 +149,15 @@ QString WebSocketServer::generateUserId(QWebSocket *socket)
 
 void WebSocketServer::sendMessageToClient(const QString &userId, const QString &message)
 {
-    if (message.isEmpty()) {
+    QString encryptedMessage = CryptoManager::encryptMessage(message);
+    if (encryptedMessage.isEmpty()) {
         qWarning() << "Cannot send empty message";
         return;
     }
     
     qDebug() << "\n=== PRIVATE MESSAGE DEBUG ===";
     qDebug() << "Attempting to send message to userId:" << userId;
-    qDebug() << "Message content:" << message;
+    qDebug() << "Message content:" << encryptedMessage;
     qDebug() << "Available client IDs:" << m_clientIds.values();
     
     QWebSocket *targetSocket = getSocketByUserId(userId);
@@ -158,7 +166,7 @@ void WebSocketServer::sendMessageToClient(const QString &userId, const QString &
         qDebug() << "Socket state:" << targetSocket->state();
         
         if (targetSocket->state() == QAbstractSocket::ConnectedState) {
-            qint64 bytesSent = targetSocket->sendTextMessage(message);
+            qint64 bytesSent = targetSocket->sendTextMessage(encryptedMessage);
             qDebug() << "✓ Message sent - bytes:" << bytesSent;
         } else {
             qWarning() << "✗ Socket not connected, state:" << targetSocket->state();
@@ -171,6 +179,7 @@ void WebSocketServer::sendMessageToClient(const QString &userId, const QString &
 
 void WebSocketServer::broadcastToAll(const QString &message)
 {
+    QString encryptedMessage = CryptoManager::encryptMessage(message);
     if (message.isEmpty()) {
         qWarning() << "Cannot send empty message";
         return;
@@ -180,13 +189,13 @@ void WebSocketServer::broadcastToAll(const QString &message)
     bool sentToAny = false;
     for (QWebSocket *client : m_clients) {
         if (client && client->state() == QAbstractSocket::ConnectedState) {
-            client->sendTextMessage(message);
+            client->sendTextMessage(encryptedMessage);
             sentToAny = true;
         }
     }
     
     if (sentToAny) {
-        qDebug() << "Broadcast message sent to all clients:" << message;
+        qDebug() << "Broadcast message sent to all clients:" << encryptedMessage;
     } else {
         qWarning() << "No connected clients to send message to.";
     }
@@ -207,4 +216,26 @@ QWebSocket* WebSocketServer::getSocketByUserId(const QString &userId)
     }
     qDebug() << "No match found";
     return nullptr;
+}
+
+QString WebSocketServer::getServerIpAddress() const
+{
+    // Get the first non-loopback IPv4 address
+    QList<QHostAddress> addresses = QNetworkInterface::allAddresses();
+    
+    for (const QHostAddress &address : addresses) {
+        // Skip loopback and IPv6 addresses
+        if (address.protocol() == QAbstractSocket::IPv4Protocol && 
+            !address.isLoopback() && 
+            address != QHostAddress::LocalHost) {
+            
+            QString ip = address.toString();
+            qDebug() << "Found server IP address:" << ip;
+            return ip;
+        }
+    }
+    
+    // Fallback to localhost if no network interface found
+    qDebug() << "No network IP found, using localhost";
+    return "localhost";
 }

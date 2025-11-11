@@ -7,7 +7,6 @@
 #include <QMap>
 
 class TusServer;
-
 class WebSocketServer : public QObject
 {
     Q_OBJECT
@@ -15,11 +14,14 @@ public:
     explicit WebSocketServer(quint16 port, QObject *parent = nullptr);
     ~WebSocketServer();
 
-    void sendMessage(const QString &message);
+    // void sendMessage(const QString &message);
     void sendMessageToClient(const QString &userId, const QString &message);
     void broadcastToAll(const QString &message);
     QStringList getConnectedUsers() const;
     int getConnectedUserCount() const { return m_clients.size(); }
+    
+    // Get server's IP address (for file sharing)
+    QString getServerIpAddress() const;
 
 signals:
     void messageReceived(const QString &message, const QString &senderId);

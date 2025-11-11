@@ -78,7 +78,7 @@ void TextMessageItem::setupUI()
     bubbleWidget->setMaximumWidth(450);
 
 
-    if (m_messageType == Sent) {
+    if (m_messageType == MessageType::Sent) {
         // --- SENT (Telegram Style) - LOCATE ON THE RIGHT ---
         // Green bubble
         bubbleWidget->setStyleSheet(
@@ -92,7 +92,6 @@ void TextMessageItem::setupUI()
         ui->senderLabel->setStyleSheet("color: #666666; font-weight: bold; background-color: transparent;");
         ui->senderLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
-        // --- FIX: Logic was reversed ---
         // In RTL layout, add Bubble *then* Spacer to align RIGHT
         mainLayout->addWidget(bubbleWidget);
         mainLayout->addStretch(1); // Spacer on the left
@@ -113,7 +112,6 @@ void TextMessageItem::setupUI()
         // Align sender based on text direction
         ui->senderLabel->setAlignment(hAlign | Qt::AlignVCenter);
 
-        // --- FIX: Logic was reversed ---
         // In RTL layout, add Spacer *then* Bubble to align LEFT
         mainLayout->addStretch(1); // Spacer on the right
         mainLayout->addWidget(bubbleWidget);

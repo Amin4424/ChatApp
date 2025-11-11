@@ -28,7 +28,10 @@ public:
 
 public slots:
     void displayNewMessages(const QString &message);
-    void displayFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &sender = "");
+    
+    // --- FIX: Update signature ---
+    void displayFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &sender = "", const QString &serverHost = "");
+    // --- END FIX ---
 
 private slots:
     void onMessageReceived(const QString &message);
@@ -36,7 +39,10 @@ private slots:
     void onUserCountChanged(int count);
     void onUserSelected(const QString &userId);
     void onServerMessageReceived(const QString &message, const QString &senderId);
-    void onFileUploaded(const QString &fileName, const QString &url, qint64 fileSize);
+    
+    // --- FIX: Update signature ---
+    void onFileUploaded(const QString &fileName, const QString &url, qint64 fileSize, const QString &serverHost = "");
+    // --- END FIX ---
 
 private:
     void loadHistoryForClient();

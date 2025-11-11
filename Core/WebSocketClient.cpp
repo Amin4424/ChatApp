@@ -1,7 +1,7 @@
 #include "WebSocketClient.h"
 #include <QDebug>
 #include <QHostAddress>
-
+#include "CryptoManager.h"
 WebSocketClient::WebSocketClient(QObject *parent)
     : QObject(parent)
 {
@@ -57,10 +57,11 @@ void WebSocketClient::connectToServer(const QUrl &url)
 
 void WebSocketClient::onMessageReceived(QString message)
 {
+    QString decryptedMessage = CryptoManager::decryptMessage(message);
     qDebug() << "\n=== CLIENT RECEIVED MESSAGE ===";
     qDebug() << "Message from server:" << message;
     qDebug() << "Emitting messageReceived signal...";
-    emit messageReceived(message);
+    emit messageReceived(decryptedMessage);
     qDebug() << "=== END CLIENT RECEIVE ===\n";
 }
 
@@ -82,9 +83,10 @@ void WebSocketClient::onError(QAbstractSocket::SocketError error)
 
 void WebSocketClient::sendMessage(const QString &message)
 {
+    QString encryptedMessage = CryptoManager::encryptMessage(message);
     if (m_webSocket.state() == QAbstractSocket::ConnectedState) {
-        m_webSocket.sendTextMessage(message);
-        qDebug() << "\n[SENT]:" << message;
+        m_webSocket.sendTextMessage(encryptedMessage);
+        qDebug() << "\n[SENT]:" << encryptedMessage;
     } else {
         qDebug() << "\n[ERROR] Cannot send message - not connected!";
     }

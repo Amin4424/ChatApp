@@ -4,6 +4,7 @@
 #include "BaseChatWindow.h"
 #include <QListWidgetItem>
 #include <QProgressBar>
+#include "TextMessageItem.h" // <-- *** ADD THIS INCLUDE ***
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -37,7 +38,11 @@ private slots:
 
 public:
     void showMessage(const QString &msg) override;
-    void showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &senderInfo) override;
+
+    // Override the pure virtual function from BaseChatWindow
+    void showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl,
+                         const QString &senderInfo, BaseChatWindow::MessageType type) override;
+
     void updateUserList(const QStringList &users);
     void updateUserCount(int count);
     void setPrivateChatMode(const QString &userId);

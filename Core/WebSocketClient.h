@@ -5,7 +5,6 @@
 #include <QtWebSockets/QWebSocket>
 #include <QUrl>
 #include <QTimer>
-
 class WebSocketClient : public QObject
 {
     Q_OBJECT
