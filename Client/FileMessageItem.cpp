@@ -75,9 +75,9 @@ void FileMessageItem::setupUI()
                    ->setButtonTextColor(Qt::white)
                    ->setProgressBarColor(QColor("#075e54"));
         
-        // Add bubble first, then spacer to align RIGHT
-        mainLayout->addWidget(m_infoCard);
+        // For LTR: Add spacer first, then bubble to align RIGHT
         mainLayout->addStretch(1);
+        mainLayout->addWidget(m_infoCard);
 
     } else {
         // --- RECEIVED (Other's message) ---
@@ -87,9 +87,9 @@ void FileMessageItem::setupUI()
                    ->setButtonTextColor(Qt::white)
                    ->setProgressBarColor(QColor("#25d366"));
 
-        // Add spacer first, then bubble to align LEFT
-        mainLayout->addStretch(1);
+        // For LTR: Add bubble first, then spacer to align LEFT
         mainLayout->addWidget(m_infoCard);
+        mainLayout->addStretch(1);
     }
 }
 

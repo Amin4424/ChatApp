@@ -171,9 +171,10 @@ void ClientController::onMessageReceived(const QString &message)
         qint64 fileSize = obj["fileSize"].toInteger();
         QString fileUrl = obj["fileUrl"].toString();
         
-        // Save file message to database
+        // Save file message to database in FILE|name|size|url format
         if (m_db) {
-            m_db->saveMessage("Server", m_clientUserId, QString("File: %1 (%2 bytes) - %3").arg(fileName).arg(fileSize).arg(fileUrl), QDateTime::currentDateTime());
+            QString fileMessage = QString("FILE|%1|%2|%3").arg(fileName).arg(fileSize).arg(fileUrl);
+            m_db->saveMessage("Server", m_clientUserId, fileMessage, QDateTime::currentDateTime());
         }
         
         // Display in client window
@@ -214,9 +215,10 @@ void ClientController::onFileUploaded(const QString &fileName, const QString &ur
         m_client->sendMessage(jsonMessage);
     }
     
-    // Save to database
+    // Save to database in FILE|name|size|url format
     if (m_db) {
-        m_db->saveMessage(m_clientUserId, "Server", QString("File: %1").arg(fileName), QDateTime::currentDateTime());
+        QString fileMessage = QString("FILE|%1|%2|%3").arg(fileName).arg(fileSize).arg(url);
+        m_db->saveMessage(m_clientUserId, "Server", fileMessage, QDateTime::currentDateTime());
     }
     
     // Display in client window

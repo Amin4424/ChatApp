@@ -111,6 +111,9 @@ target_link_libraries(ClientApp PRIVATE
     OpenSSL::Crypto
 )
 
+# Ensure autogen runs before compiling
+set_target_properties(ClientApp PROPERTIES AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Client/UI")
+
 # Platform-specific settings for Client
 if(WIN32 OR MINGW)
     set_target_properties(ClientApp PROPERTIES
@@ -183,6 +186,9 @@ target_link_libraries(ServerApp PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
 )
+
+# Ensure autogen runs before compiling
+set_target_properties(ServerApp PROPERTIES AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Server/UI")
 
 # Platform-specific settings for Server
 if(WIN32 OR MINGW)

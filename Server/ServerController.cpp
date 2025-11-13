@@ -283,9 +283,10 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
         qDebug() << "✅ [ServerController] File size:" << fileSize;
         qDebug() << "✅ [ServerController] File URL:" << fileUrl;
         
-        // Save file message to database
+        // Save file message to database in FILE|name|size|url format
         if (m_db) {
-            m_db->saveMessage(senderId, "Server", QString("File: %1 (%2 bytes) - %3").arg(fileName).arg(fileSize).arg(fileUrl), QDateTime::currentDateTime());
+            QString fileMessage = QString("FILE|%1|%2|%3").arg(fileName).arg(fileSize).arg(fileUrl);
+            m_db->saveMessage(senderId, "Server", fileMessage, QDateTime::currentDateTime());
             qDebug() << "✅ [ServerController] File message saved to database";
         } else {
             qDebug() << "⚠️ [ServerController] m_db is NULL - file message not saved";
@@ -327,9 +328,10 @@ void ServerController::onFileUploaded(const QString &fileName, const QString &ur
             m_server->broadcastToAll(jsonMessage);
         }
         
-        // Save to database
+        // Save to database in FILE|name|size|url format
         if (m_db) {
-            m_db->saveMessage("Server", "ALL", QString("File: %1").arg(fileName), QDateTime::currentDateTime());
+            QString fileMessage = QString("FILE|%1|%2|%3").arg(fileName).arg(fileSize).arg(url);
+            m_db->saveMessage("Server", "ALL", fileMessage, QDateTime::currentDateTime());
         }
     } else {
         // Send to specific user
@@ -339,9 +341,10 @@ void ServerController::onFileUploaded(const QString &fileName, const QString &ur
             m_server->sendMessageToClient(cleanUserId, jsonMessage);
         }
         
-        // Save to database
+        // Save to database in FILE|name|size|url format
         if (m_db) {
-            m_db->saveMessage("Server", cleanUserId, QString("File: %1").arg(fileName), QDateTime::currentDateTime());
+            QString fileMessage = QString("FILE|%1|%2|%3").arg(fileName).arg(fileSize).arg(url);
+            m_db->saveMessage("Server", cleanUserId, fileMessage, QDateTime::currentDateTime());
         }
     }
     

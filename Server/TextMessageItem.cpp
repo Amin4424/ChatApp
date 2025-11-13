@@ -38,15 +38,15 @@ void TextMessageItem::setupUI()
         m_bubble->setTimestamp(m_timestamp);
     }
 
-    // 4. Apply alignment (right/left)
+    // 4. Apply alignment (right/left) for LTR layout
     if (m_messageType == MessageType::Sent) {
-        // Sent message: bubble on the right (in RTL layout)
-        mainLayout->addWidget(m_bubble);
+        // Sent message: bubble on the right (in LTR layout)
         mainLayout->addStretch(1); // Add space on the left
-    } else {
-        // Received message: bubble on the left (in RTL layout)
-        mainLayout->addStretch(1); // Add space on the right
         mainLayout->addWidget(m_bubble);
+    } else {
+        // Received message: bubble on the left (in LTR layout)
+        mainLayout->addWidget(m_bubble);
+        mainLayout->addStretch(1); // Add space on the right
     }
 }
 
