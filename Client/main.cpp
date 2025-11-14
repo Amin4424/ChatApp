@@ -1,7 +1,7 @@
 #include <QApplication>
-#include "UI/ConnectPage.h"
+#include "View/ConnectPage.h"
 #include "ConnectPageController.h"
-#include "UI/ClientChatWindow.h"
+#include "View/ClientChatWindow.h"
 
 int main(int argc, char *argv[])
 {

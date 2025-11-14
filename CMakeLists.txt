@@ -22,6 +22,30 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core WebSockets Widgets S
 find_package(OpenSSL REQUIRED)
 
 #==============================================================================
+# CommonCore - STATIC LIBRARY (Shared Core/Network utilities)
+#==============================================================================
+add_library(CommonCore STATIC
+    CommonCore/CryptoManager.cpp
+    CommonCore/CryptoManager.h
+    CommonCore/TusDownloader.cpp
+    CommonCore/TusDownloader.h
+    CommonCore/TusUploader.cpp
+    CommonCore/TusUploader.h
+)
+
+target_include_directories(CommonCore PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/CommonCore
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+target_link_libraries(CommonCore PUBLIC
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Network
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+#==============================================================================
 # CommonUI - STATIC LIBRARY (Only shared UI components)
 #==============================================================================
 add_library(CommonUI STATIC
@@ -33,14 +57,21 @@ add_library(CommonUI STATIC
     CommonUI/BaseChatWindow.h
     CommonUI/BaseMessageItem.cpp
     CommonUI/BaseMessageItem.h
+    CommonUI/TextMessageItem.cpp
+    CommonUI/TextMessageItem.h
+    CommonUI/FileMessageItem.cpp
+    CommonUI/FileMessageItem.h
+    CommonUI/MessageData.h
 )
 
 target_include_directories(CommonUI PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/CommonUI
+    ${CMAKE_CURRENT_SOURCE_DIR}/CommonCore
     ${OPENSSL_INCLUDE_DIR}
 )
 
 target_link_libraries(CommonUI PUBLIC
+    CommonCore  # Link CommonCore for TusDownloader
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
@@ -56,52 +87,42 @@ add_executable(ClientApp
     Client/main.cpp
     
     # Controllers
-    Client/ClientController.cpp
-    Client/ClientController.h
-    Client/ConnectPageController.cpp
-    Client/ConnectPageController.h
+    Client/Controller/ClientController.cpp
+    Client/Controller/ClientController.h
+    Client/Controller/ConnectPageController.cpp
+    Client/Controller/ConnectPageController.h
     
-    # UI Windows
-    Client/UI/ClientChatWindow.cpp
-    Client/UI/ClientChatWindow.h
-    Client/UI/ClientChatWindow.ui
-    Client/UI/ConnectPage.cpp
-    Client/UI/ConnectPage.h
-    Client/UI/ConnectPage.ui
+    # View (UI Windows)
+    Client/View/ClientChatWindow.cpp
+    Client/View/ClientChatWindow.h
+    Client/View/ClientChatWindow.ui
+    Client/View/ConnectPage.cpp
+    Client/View/ConnectPage.h
+    Client/View/ConnectPage.ui
     
-    # Network
-    Client/Network/WebSocketClient.cpp
-    Client/Network/WebSocketClient.h
-    Client/Network/TusUploader.cpp
-    Client/Network/TusUploader.h
-    Client/Network/TusDownloader.cpp
-    Client/Network/TusDownloader.h
-    
-    # Core utilities (NOT SHARED - Client copy)
-    Client/Core/CryptoManager.cpp
-    Client/Core/CryptoManager.h
-    Client/Core/DatabaseManager.cpp
-    Client/Core/DatabaseManager.h
-    
-    # Message Items (NOT SHARED - Client copy)
-    Client/TextMessageItem.cpp
-    Client/TextMessageItem.h
-    Client/FileMessageItem.cpp
-    Client/FileMessageItem.h
+    # Model (Network & Core)
+    Client/Model/Network/WebSocketClient.cpp
+    Client/Model/Network/WebSocketClient.h
+    Client/Model/Core/DatabaseManager.cpp
+    Client/Model/Core/DatabaseManager.h
 )
 
 target_include_directories(ClientApp PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/Client
-    ${CMAKE_CURRENT_SOURCE_DIR}/Client/UI
-    ${CMAKE_CURRENT_SOURCE_DIR}/Client/Network
-    ${CMAKE_CURRENT_SOURCE_DIR}/Client/Core
+    ${CMAKE_CURRENT_SOURCE_DIR}/Client/View
+    ${CMAKE_CURRENT_SOURCE_DIR}/Client/Model
+    ${CMAKE_CURRENT_SOURCE_DIR}/Client/Model/Network
+    ${CMAKE_CURRENT_SOURCE_DIR}/Client/Model/Core
+    ${CMAKE_CURRENT_SOURCE_DIR}/Client/Controller
     ${CMAKE_CURRENT_SOURCE_DIR}/CommonUI
+    ${CMAKE_CURRENT_SOURCE_DIR}/CommonCore
     ${OPENSSL_INCLUDE_DIR}
 )
 
 target_link_libraries(ClientApp PRIVATE
-    CommonUI  # Link shared UI library
+    CommonUI    # Link shared UI library
+    CommonCore  # Link shared Core library
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::WebSockets
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -112,7 +133,7 @@ target_link_libraries(ClientApp PRIVATE
 )
 
 # Ensure autogen runs before compiling
-set_target_properties(ClientApp PROPERTIES AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Client/UI")
+set_target_properties(ClientApp PROPERTIES AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Client/View")
 
 # Platform-specific settings for Client
 if(WIN32 OR MINGW)
@@ -133,51 +154,43 @@ add_executable(ServerApp
     Server/main.cpp
     
     # Controllers
-    Server/ServerController.cpp
-    Server/ServerController.h
+    Server/Controller/ServerController.cpp
+    Server/Controller/ServerController.h
     
-    # UI Windows
-    Server/UI/ServerChatWindow.cpp
-    Server/UI/ServerChatWindow.h
-    Server/UI/ServerChatWindow.ui
+    # View (UI Windows)
+    Server/View/ServerChatWindow.cpp
+    Server/View/ServerChatWindow.h
+    Server/View/ServerChatWindow.ui
     
-    # Network
-    Server/Network/WebSocketServer.cpp
-    Server/Network/WebSocketServer.h
-    Server/Network/TusServer.cpp
-    Server/Network/TusServer.h
-    Server/Network/TusUploader.cpp
-    Server/Network/TusUploader.h
-    Server/Network/TusDownloader.cpp
-    Server/Network/TusDownloader.h
+    # Model - Network
+    Server/Model/Network/WebSocketServer.cpp
+    Server/Model/Network/WebSocketServer.h
+    Server/Model/Network/TusServer.cpp
+    Server/Model/Network/TusServer.h
     
-    # Core utilities (NOT SHARED - Server copy)
-    Server/Core/CryptoManager.cpp
-    Server/Core/CryptoManager.h
-    Server/Core/DatabaseManager.cpp
-    Server/Core/DatabaseManager.h
-    Server/Core/User.cpp
-    Server/Core/User.h
-    
-    # Message Items (NOT SHARED - Server copy)
-    Server/TextMessageItem.cpp
-    Server/TextMessageItem.h
-    Server/FileMessageItem.cpp
-    Server/FileMessageItem.h
+    # Model - Core (NOT SHARED - Server copy)
+    Server/Model/Core/DatabaseManager.cpp
+    Server/Model/Core/DatabaseManager.h
+    Server/Model/Core/User.cpp
+    Server/Model/Core/User.h
 )
 
 target_include_directories(ServerApp PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/Server
-    ${CMAKE_CURRENT_SOURCE_DIR}/Server/UI
-    ${CMAKE_CURRENT_SOURCE_DIR}/Server/Network
-    ${CMAKE_CURRENT_SOURCE_DIR}/Server/Core
+    ${CMAKE_CURRENT_SOURCE_DIR}/Server/View
+    ${CMAKE_CURRENT_SOURCE_DIR}/Server/Model
+    ${CMAKE_CURRENT_SOURCE_DIR}/Server/Model/Network
+    ${CMAKE_CURRENT_SOURCE_DIR}/Server/Model/Core
+    ${CMAKE_CURRENT_SOURCE_DIR}/Server/Controller
     ${CMAKE_CURRENT_SOURCE_DIR}/CommonUI
+    ${CMAKE_CURRENT_SOURCE_DIR}/CommonCore
     ${OPENSSL_INCLUDE_DIR}
 )
 
 target_link_libraries(ServerApp PRIVATE
-    CommonUI  # Link shared UI library
+    CommonUI    # Link shared UI library
+    CommonCore  # Link shared Core library
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::WebSockets
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -188,7 +201,7 @@ target_link_libraries(ServerApp PRIVATE
 )
 
 # Ensure autogen runs before compiling
-set_target_properties(ServerApp PROPERTIES AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Server/UI")
+set_target_properties(ServerApp PROPERTIES AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Server/View")
 
 # Platform-specific settings for Server
 if(WIN32 OR MINGW)

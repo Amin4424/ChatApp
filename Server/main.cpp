@@ -1,8 +1,8 @@
 #include <QApplication>
-#include "UI/ServerChatWindow.h"
-#include "Network/WebSocketServer.h"
-#include "Network/TusServer.h"
-#include "Core/DatabaseManager.h"
+#include "View/ServerChatWindow.h"
+#include "Model/Network/WebSocketServer.h"
+#include "Model/Network/TusServer.h"
+#include "Model/Core/DatabaseManager.h"
 #include "ServerController.h"
 #include <QMessageBox>
 

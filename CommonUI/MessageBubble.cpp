@@ -22,8 +22,10 @@ void MessageBubble::setupUI()
     m_senderLabel->setObjectName("senderLabel");
     m_messageLabel = new QLabel(this);
     m_messageLabel->setObjectName("messageLabel");
-    m_timestampLabel = new QLabel(this);  // NEW: Create timestamp label
+    m_timestampLabel = new QLabel(this);
     m_timestampLabel->setObjectName("timestampLabel");
+    m_statusIconLabel = new QLabel(this);  // NEW: Create status icon label
+    m_statusIconLabel->setObjectName("statusIconLabel");
     
     // Configure sender label
     m_senderLabel->setWordWrap(false);
@@ -39,23 +41,36 @@ void MessageBubble::setupUI()
     m_messageFont.setPointSize(10);
     m_messageLabel->setFont(m_messageFont);
     
-    // Configure timestamp label (NEW)
+    // Configure timestamp label
     m_timestampLabel->setWordWrap(false);
     QFont timestampFont = m_timestampLabel->font();
     timestampFont.setPointSize(7);
     timestampFont.setItalic(true);
     m_timestampLabel->setFont(timestampFont);
     m_timestampLabel->setStyleSheet("QLabel { color: #666666; }");
-    m_timestampLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     m_timestampLabel->setVisible(false);  // Hidden by default until timestamp is set
     
-    // Create layout
+    // Configure status icon label (NEW)
+    m_statusIconLabel->setWordWrap(false);
+    m_statusIconLabel->setStyleSheet("QLabel { color: #666; }");
+    m_statusIconLabel->setVisible(false);  // Hidden by default until status is set
+    
+    // Create main layout
     m_mainLayout = new QVBoxLayout(this);
     m_mainLayout->setContentsMargins(m_bubblePadding, 8, m_bubblePadding, 8);
     m_mainLayout->setSpacing(4);
     m_mainLayout->addWidget(m_senderLabel);
     m_mainLayout->addWidget(m_messageLabel);
-    m_mainLayout->addWidget(m_timestampLabel);  // NEW: Add timestamp to layout (at bottom)
+    
+    // Create bottom layout for timestamp + status icon (NEW)
+    QHBoxLayout *bottomLayout = new QHBoxLayout();
+    bottomLayout->setContentsMargins(0, 0, 0, 0);
+    bottomLayout->setSpacing(4);
+    bottomLayout->addStretch(1);  // Spacer to push to the right
+    bottomLayout->addWidget(m_timestampLabel);
+    bottomLayout->addWidget(m_statusIconLabel);
+    
+    m_mainLayout->addLayout(bottomLayout);  // Add bottom layout to main layout
     
     // Configure the bubble frame
     setFrameShape(QFrame::NoFrame);
@@ -255,4 +270,24 @@ bool MessageBubble::isRTL(const QString &text) const
     }
     
     return false;
+}
+
+MessageBubble* MessageBubble::setMessageStatus(Status status)
+{
+    switch (status) {
+        case Status::Pending:
+            m_statusIconLabel->setText("🕒");
+            m_statusIconLabel->setVisible(true);
+            break;
+        case Status::Sent:
+            m_statusIconLabel->setText("✓");
+            m_statusIconLabel->setStyleSheet("QLabel { color: #34b7f1; font-weight: bold; }");
+            m_statusIconLabel->setVisible(true);
+            break;
+        case Status::None:
+        default:
+            m_statusIconLabel->setVisible(false);
+            break;
+    }
+    return this;
 }

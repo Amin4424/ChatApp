@@ -22,11 +22,19 @@ public:
     explicit MessageBubble(QWidget *parent = nullptr);
     ~MessageBubble();
 
+    // Status enum for message delivery state
+    enum class Status {
+        None,
+        Pending,  // ساعت 🕒
+        Sent      // تیک ✓
+    };
+
     // Fluent API setters for content
     MessageBubble* setSenderText(const QString &sender);
     MessageBubble* setMessageText(const QString &message);
     MessageBubble* setMessageType(MessageType type);
-    MessageBubble* setTimestamp(const QString &timestamp);  // NEW: Add timestamp
+    MessageBubble* setTimestamp(const QString &timestamp);
+    MessageBubble* setMessageStatus(Status status);  // NEW: Set message status
 
     // Fluent API setters for styling
     MessageBubble* setBubbleBackgroundColor(const QColor &color);
@@ -46,7 +54,8 @@ public:
     // Widget accessors for advanced customization
     QLabel* senderLabel() const { return m_senderLabel; }
     QLabel* messageLabel() const { return m_messageLabel; }
-    QLabel* timestampLabel() const { return m_timestampLabel; }  // NEW: Add timestamp accessor
+    QLabel* timestampLabel() const { return m_timestampLabel; }
+    QLabel* statusIconLabel() const { return m_statusIconLabel; }  // NEW: Add status icon accessor
     QVBoxLayout* mainLayout() const { return m_mainLayout; }
 
 private:
@@ -56,7 +65,8 @@ private:
     // Internal widgets
     QLabel *m_senderLabel;
     QLabel *m_messageLabel;
-    QLabel *m_timestampLabel;  // NEW: Add timestamp label
+    QLabel *m_timestampLabel;
+    QLabel *m_statusIconLabel;  // NEW: Add status icon label
     QVBoxLayout *m_mainLayout;
     
     // Current message type for default styling

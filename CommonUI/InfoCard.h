@@ -3,13 +3,14 @@
 
 #include <QFrame>
 #include <QLabel>
-#include <QPushButton>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPixmap>
 #include <QColor>
 #include <QFont>
-#include <QProgressBar> // <-- ADD THIS
+#include <QProgressBar>
+#include <QMouseEvent>
 
 class InfoCard : public QFrame
 {
@@ -19,12 +20,22 @@ public:
     explicit InfoCard(QWidget *parent = nullptr);
     ~InfoCard();
 
+    // State enum for managing different display modes
+    enum class State {
+        Idle_Downloadable,     // حالت دانلود (کل کارت قابل کلیک)
+        In_Progress_Upload,    // در حال آپلود (نوار پیشرفت، ساعت 🕒)
+        In_Progress_Download,  // در حال دانلود (نوار پیشرفت، بدون ساعت)
+        Completed_Sent,        // ارسال شده (زمان، تیک ✓)
+        Completed_Pending,     // در انتظار ارسال (زمان، ساعت 🕒)
+        Completed_Downloaded   // دانلود شده (قابل کلیک برای باز کردن)
+    };
+
     // Fluent API setters (return InfoCard* for method chaining)
     InfoCard* setTitle(const QString &title);
     InfoCard* setFileName(const QString &fileName);
     InfoCard* setFileSize(const QString &fileSize);
-    InfoCard* setButtonText(const QString &text);
     InfoCard* setIcon(const QPixmap &pixmap);
+    InfoCard* setTimestamp(const QString &timestamp);
 
     // Style setters (fluent API)
     InfoCard* setCardBackgroundColor(const QColor &color);
@@ -32,35 +43,30 @@ public:
     InfoCard* setTitleFont(const QFont &font);
     InfoCard* setFileNameColor(const QColor &color);
     InfoCard* setFileNameFont(const QFont &font);
-    InfoCard* setButtonTextColor(const QColor &color);
-    InfoCard* setButtonBackgroundColor(const QColor &color);
-    InfoCard* setButtonBorderRadius(int radius);
 
-    // --- NEW: Progress Bar functions ---
-    InfoCard* showProgressBar(bool show);
-    InfoCard* setProgressBarColor(const QColor &color);
-    // --- END NEW ---
+    // State management
+    void setState(State newState);
 
     // Getters (for compatibility)
     QString title() const;
     QString fileName() const;
     QString fileSize() const;
-    QString buttonText() const;
-    
-    // Button state management
-    InfoCard* setButtonEnabled(bool enabled);
 
 signals:
-    // Signal for button click
-    void buttonClicked();
+    // Signal for card click (replaces buttonClicked)
+    void cardClicked();
+    void cancelClicked();
 
 public slots:
-    // --- NEW: Slot to update progress ---
+    // Slot to update progress
     void updateProgress(qint64 bytesReceived, qint64 bytesTotal);
-    // --- END NEW ---
+
+protected:
+    // Override mouse press event for click detection
+    void mousePressEvent(QMouseEvent *event) override;
 
 private slots:
-    void onButtonClicked();
+    void onCancelClicked();
 
 private:
     void setupUI();
@@ -71,8 +77,17 @@ private:
     QLabel *m_fileNameLabel;
     QLabel *m_fileSizeLabel;
     QLabel *m_iconLabel;
-    QPushButton *m_actionButton;
-    QProgressBar *m_progressBar; // <-- ADD THIS
+    
+    // Progress widgets (for in-progress state)
+    QProgressBar *m_progressBar;
+    QLabel *m_progressLabel;        // "25%"
+    QToolButton *m_cancelButton;
+    QWidget *m_progressWidget;      // Container for progress bar and buttons
+    
+    // Status widgets (for completed state)
+    QLabel *m_timestampLabel;
+    QLabel *m_statusIconLabel;      // 🕒 or ✓
+    QWidget *m_statusWidget;        // Container for timestamp and status icon
 
     // Layouts
     QVBoxLayout *m_mainLayout;
@@ -85,10 +100,9 @@ private:
     QFont m_titleFont;
     QColor m_fileNameColor;
     QFont m_fileNameFont;
-    QColor m_buttonTextColor;
-    QColor m_buttonBgColor;
-    int m_buttonBorderRadius;
-    QColor m_progressBarColor; // <-- ADD THIS
+    
+    // Current state
+    State m_currentState;
 };
 
 #endif // INFOCARD_H
