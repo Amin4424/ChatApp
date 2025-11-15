@@ -119,6 +119,13 @@ void ClientController::displayNewMessages(const QString &message)
     if (m_clientView) {
         qDebug() << "✅ [ClientController] Adding message to UI...";
         m_clientView->addMessageItem(itemWidget);
+        
+        // **NEW: Mark text message as sent (change from 🕒 to ✓)**
+        TextMessageItem* textItem = qobject_cast<TextMessageItem*>(itemWidget);
+        if (textItem) {
+            textItem->markAsSent();
+        }
+        
         qDebug() << "✅ [ClientController] Message added to UI";
     } else {
         qDebug() << "❌ [ClientController] ClientView is NULL!";

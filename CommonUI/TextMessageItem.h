@@ -16,6 +16,9 @@ public:
 
     explicit TextMessageItem(const QString &messageText, const QString &senderInfo = "", MessageType type = MessageType::Received, const QString &timestamp = "", QWidget *parent = nullptr);
     ~TextMessageItem();
+    
+    // Public methods to control status
+    void markAsSent();  // Change from pending (🕒) to sent (✓)
 
 protected:
     void setupUI() override;

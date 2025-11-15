@@ -114,6 +114,12 @@ void ServerController::displayNewMessages(const QString &message)
     QWidget* itemWidget = createWidgetFromData(msgData);
     if (m_serverView) {
         m_serverView->addMessageItem(itemWidget);
+        
+        // **NEW: Mark text message as sent (change from 🕒 to ✓)**
+        TextMessageItem* textItem = qobject_cast<TextMessageItem*>(itemWidget);
+        if (textItem) {
+            textItem->markAsSent();
+        }
     }
 }
 

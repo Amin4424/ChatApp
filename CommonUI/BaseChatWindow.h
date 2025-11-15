@@ -24,11 +24,6 @@ public:
         Sent
     };
 
-    // Common interface methods
-    virtual void showMessage(const QString &msg) = 0;
-    virtual void showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, 
-                                 const QString &senderInfo, MessageType type) = 0;
-
 signals:
     void sendMessageRequested(const QString &message);
     // --- FIX: Add serverHost parameter ---

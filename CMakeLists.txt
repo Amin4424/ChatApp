@@ -18,8 +18,40 @@ endif()
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core WebSockets Widgets Sql Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core WebSockets Widgets Sql Network)
 
+
 # Find OpenSSL
-find_package(OpenSSL REQUIRED)
+if(UNIX AND NOT APPLE)
+    message("We are on running Linux")
+    find_package(OpenSSL REQUIRED)
+endif()
+
+if(WIN32)
+    # ---
+    # Downolad Win64 OpenSSL v3.6.0 EXE
+    # from https://slproweb.com/products/Win32OpenSSL.html
+    # use add_library and set_target_properties like ordinary library
+    # The OpenSSL lib here seems to be MSVC compatible and not MinGW which Qt on Windows usese
+    # so find_package not gonna work
+    # choco install openssl --version=1.1.1.1400 is also commandline so it is worthless
+    # this current method is not ABI safe`
+    # ---
+
+    # TODO Consider using VCPKG for CI/CD 
+    # TODO Consdier using pacman from MSYS2: https://packages.msys2.org/packages/mingw-w64-x86_64-openssl
+    # TODO update the path if you are compiling based on installed path
+    message("We are on running Windows")
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::SSL PROPERTIES
+        IMPORTED_LOCATION "E:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib"
+        INTERFACE_INCLUDE_DIRECTORIES "E:/Program Files/OpenSSL-Win64/include"
+    )
+
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::Crypto PROPERTIES
+        IMPORTED_LOCATION "E:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib"
+        INTERFACE_INCLUDE_DIRECTORIES "E:/Program Files/OpenSSL-Win64/include"
+    )
+endif()
 
 #==============================================================================
 # CommonCore - STATIC LIBRARY (Shared Core/Network utilities)

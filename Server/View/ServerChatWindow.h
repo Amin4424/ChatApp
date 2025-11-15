@@ -39,12 +39,6 @@ private slots:
     void onSendFileClicked();
 
 public:
-    void showMessage(const QString &msg) override;
-
-    // Override the pure virtual function from BaseChatWindow
-    void showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl,
-                         const QString &senderInfo, BaseChatWindow::MessageType type) override;
-
     // Add message item directly
     void addMessageItem(QWidget *messageItem);
 

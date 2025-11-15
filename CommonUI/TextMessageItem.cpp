@@ -37,6 +37,15 @@ void TextMessageItem::setupUI()
     if (!m_timestamp.isEmpty()) {
         m_bubble->setTimestamp(m_timestamp);
     }
+    
+    // **NEW: تنظیم وضعیت اولیه پیام**
+    if (m_messageType == MessageType::Sent) {
+        // پیام ارسالی: ابتدا Pending (🕒) است
+        m_bubble->setMessageStatus(MessageBubble::Status::Sent);  // همیشه تیک (برای پیام‌های ذخیره شده)
+    } else {
+        // پیام دریافتی: تیک (✓) نمایش داده می‌شود
+        m_bubble->setMessageStatus(MessageBubble::Status::Sent);
+    }
 
     // 4. Apply alignment (right/left) for LTR layout
     if (m_messageType == MessageType::Sent) {
@@ -84,4 +93,12 @@ void TextMessageItem::applyStyles()
     QFont messageFont = m_bubble->messageLabel()->font();
     messageFont.setPointSize(10);
     m_bubble->setMessageFont(messageFont);
+}
+
+void TextMessageItem::markAsSent()
+{
+    qDebug() << "📤 [TextMessageItem] markAsSent() called";
+    if (m_bubble) {
+        m_bubble->setMessageStatus(MessageBubble::Status::Sent);
+    }
 }

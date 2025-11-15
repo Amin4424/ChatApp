@@ -134,24 +134,6 @@ void ServerChatWindow::onBroadcastModeClicked()
     setBroadcastMode();
 }
 
-void ServerChatWindow::showMessage(const QString &msg)
-{
-    // DEPRECATED: This method should not be used anymore.
-    // Controller should create the widget and call addMessageItem() directly.
-    qWarning() << "DEPRECATED: ServerChatWindow::showMessage(QString) called.";
-    qWarning() << "Controllers should use addMessageItem(QWidget*) instead.";
-    qWarning() << "Message was:" << msg;
-}
-
-void ServerChatWindow::showFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl,
-                                       const QString &senderInfo, BaseChatWindow::MessageType type)
-{
-    // DEPRECATED: This method should not be used anymore.
-    // Controller should create FileMessageItem and call addMessageItem() directly.
-    qWarning() << "DEPRECATED: ServerChatWindow::showFileMessage() called.";
-    qWarning() << "Controllers should use addMessageItem(QWidget*) instead.";
-}
-
 void ServerChatWindow::updateUserList(const QStringList &users)
 {
     ui->userListWdgt->clear();
