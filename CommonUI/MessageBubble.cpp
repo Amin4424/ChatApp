@@ -1,5 +1,6 @@
 #include "MessageBubble.h"
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 
 MessageBubble::MessageBubble(QWidget *parent)
     : QFrame(parent),
@@ -24,6 +25,8 @@ void MessageBubble::setupUI()
     m_messageLabel->setObjectName("messageLabel");
     m_timestampLabel = new QLabel(this);
     m_timestampLabel->setObjectName("timestampLabel");
+    m_editedLabel = new QLabel(this);
+    m_editedLabel->setObjectName("editedLabel");
     m_statusIconLabel = new QLabel(this);  // NEW: Create status icon label
     m_statusIconLabel->setObjectName("statusIconLabel");
     
@@ -50,6 +53,14 @@ void MessageBubble::setupUI()
     m_timestampLabel->setStyleSheet("QLabel { color: #666666; }");
     m_timestampLabel->setVisible(false);  // Hidden by default until timestamp is set
     
+    // Configure edited label
+    m_editedLabel->setWordWrap(false);
+    QFont editedFont = timestampFont;
+    editedFont.setItalic(true);
+    m_editedLabel->setFont(editedFont);
+    m_editedLabel->setStyleSheet("QLabel { color: #999999; }");
+    m_editedLabel->setVisible(false);
+    
     // Configure status icon label (NEW)
     m_statusIconLabel->setWordWrap(false);
     m_statusIconLabel->setStyleSheet("QLabel { color: #666; }");
@@ -67,6 +78,7 @@ void MessageBubble::setupUI()
     bottomLayout->setContentsMargins(0, 0, 0, 0);
     bottomLayout->setSpacing(4);
     bottomLayout->addStretch(1);  // Spacer to push to the right
+    bottomLayout->addWidget(m_editedLabel);
     bottomLayout->addWidget(m_timestampLabel);
     bottomLayout->addWidget(m_statusIconLabel);
     
@@ -116,6 +128,18 @@ MessageBubble* MessageBubble::setTimestamp(const QString &timestamp)
 {
     m_timestampLabel->setText(timestamp);
     m_timestampLabel->setVisible(!timestamp.isEmpty());
+    return this;
+}
+
+MessageBubble* MessageBubble::setEdited(bool edited)
+{
+    m_isEdited = edited;
+    if (m_editedLabel) {
+        if (edited) {
+            m_editedLabel->setText(tr("(Edited)"));
+        }
+        m_editedLabel->setVisible(edited);
+    }
     return this;
 }
 
@@ -197,6 +221,14 @@ MessageBubble* MessageBubble::setMessageLabelStyleSheet(const QString &styleShee
     return this;
 }
 
+MessageBubble* MessageBubble::setEditedStyle(const QString &styleSheet)
+{
+    if (m_editedLabel) {
+        m_editedLabel->setStyleSheet(styleSheet);
+    }
+    return this;
+}
+
 void MessageBubble::applyDefaultStyles()
 {
     // Set default colors based on message type
@@ -245,6 +277,9 @@ void MessageBubble::updateStyles()
     ).arg(m_messageTextColor.name(), m_messageFont.family(), QString::number(m_messageFont.pointSize()));
     if (m_messageFont.bold()) messageStyle += " font-weight: bold;";
     m_messageLabel->setStyleSheet(messageStyle);
+
+    QString timestampColor = (m_messageType == Sent) ? "#7f8ca6" : "#e5efff";
+    m_timestampLabel->setStyleSheet(QString("QLabel { color: %1; font-style: italic; }").arg(timestampColor));
 }
 
 bool MessageBubble::isRTL(const QString &text) const
@@ -274,14 +309,18 @@ bool MessageBubble::isRTL(const QString &text) const
 
 MessageBubble* MessageBubble::setMessageStatus(Status status)
 {
+    QColor tickColor = (m_messageType == Sent) ? QColor("#1f6bff") : QColor("#ffffff");
+    QColor pendingColor = (m_messageType == Sent) ? QColor("#7f8ca6") : QColor("#f5f7ff");
     switch (status) {
         case Status::Pending:
             m_statusIconLabel->setText("🕒");
+            m_statusIconLabel->setStyleSheet(QString("QLabel { color: %1; }").arg(pendingColor.name()));
             m_statusIconLabel->setVisible(true);
             break;
         case Status::Sent:
             m_statusIconLabel->setText("✓");
-            m_statusIconLabel->setStyleSheet("QLabel { color: #34b7f1; font-weight: bold; }");
+            m_statusIconLabel->setStyleSheet(QString("QLabel { color: %1; font-weight: bold; }")
+                                             .arg(tickColor.name()));
             m_statusIconLabel->setVisible(true);
             break;
         case Status::None:

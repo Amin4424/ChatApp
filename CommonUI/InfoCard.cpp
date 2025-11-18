@@ -8,10 +8,16 @@
 InfoCard::InfoCard(QWidget *parent)
     : QFrame(parent),
       m_cardBgColor(Qt::white),
+      m_customBackgroundStyle(""),
+      m_useCustomBackground(false),
+      m_cornerRadius(12),
       m_titleColor(Qt::gray),
       m_titleFont("Arial", 10),
       m_fileNameColor(Qt::black),
       m_fileNameFont("Arial", 12, QFont::Bold),
+      m_fileSizeColor(QColor("#666666")),
+      m_timestampColor(QColor("#999999")),
+      m_isOutgoing(true),
       m_currentState(State::Idle_Downloadable)
 {
     setupUI();
@@ -28,9 +34,10 @@ void InfoCard::setupUI()
     // Set object name for styling
     setObjectName("infoCardFrame");
     
-    // **FIX: عرض ثابت، ارتفاع dynamic**
-    setFixedWidth(280);
-    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
+    // **FIX: عرض و ارتفاع ثابت برای تمام فایل‌ها**
+    setFixedWidth(280);  // عرض ثابت 280 پیکسل
+    setFixedHeight(123); // ارتفاع ثابت 123 پیکسل (بزرگترین حالت)
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     // Create main layout (QVBoxLayout)
     m_mainLayout = new QVBoxLayout(this);
@@ -80,8 +87,9 @@ void InfoCard::setupUI()
     // === Progress Widget (for In-Progress state) ===
     // **FIX: نوار پیشرفت جداگانه AFTER middleLayout**
     m_progressWidget = new QWidget(this);
+    m_progressWidget->setFixedHeight(50); // ارتفاع ثابت
     QVBoxLayout *progressLayout = new QVBoxLayout(m_progressWidget);
-    progressLayout->setContentsMargins(0, 5, 0, 0); // فاصله از بالا
+    progressLayout->setContentsMargins(0, 5, 0, 0);
     progressLayout->setSpacing(4);
     
     // Progress bar
@@ -100,7 +108,7 @@ void InfoCard::setupUI()
         "    background-color: #e0e0e0;"
         "}"
         "QProgressBar::chunk {"
-        "    background-color: #34b7f1;"
+        "    background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #7bb6ff, stop:1 #3470ff);"
         "    border-radius: 3px;"
         "}"
     );
@@ -133,18 +141,19 @@ void InfoCard::setupUI()
 
     // === 3. Status Widget (for Completed state) ===
     m_statusWidget = new QWidget(this);
+    m_statusWidget->setFixedHeight(30); // ارتفاع ثابت
     QHBoxLayout *statusLayout = new QHBoxLayout(m_statusWidget);
-    statusLayout->setContentsMargins(0, 0, 0, 0);
+    statusLayout->setContentsMargins(0, 5, 0, 0); // همون margin با progressWidget
     statusLayout->setSpacing(4);
     
     statusLayout->addStretch();
     
-    m_timestampLabel = new QLabel("11:38");
+    m_timestampLabel = new QLabel("");
     m_timestampLabel->setStyleSheet("color: #999; font-size: 10pt;");
     statusLayout->addWidget(m_timestampLabel);
     
     m_statusIconLabel = new QLabel("✓");
-    m_statusIconLabel->setStyleSheet("color: #34b7f1; font-size: 12pt; font-weight: bold;");
+    m_statusIconLabel->setStyleSheet("color: #1f6bff; font-size: 12pt; font-weight: bold;");
     statusLayout->addWidget(m_statusIconLabel);
     
     m_statusWidget->setVisible(false);
@@ -161,8 +170,16 @@ void InfoCard::setupUI()
 void InfoCard::updateStyles()
 {
     // Apply card background
-    QString cardStyle = QString("QFrame#infoCardFrame { background-color: %1; border: 1px solid #e0e0e0; border-radius: 8px; }")
-                        .arg(m_cardBgColor.name());
+    QString cardStyle;
+    if (m_useCustomBackground && !m_customBackgroundStyle.isEmpty()) {
+        cardStyle = QString("QFrame#infoCardFrame { %1 border-radius: %2px; }")
+                        .arg(m_customBackgroundStyle)
+                        .arg(m_cornerRadius);
+    } else {
+        cardStyle = QString("QFrame#infoCardFrame { background-color: %1; border: 1px solid #e0e0e0; border-radius: %2px; }")
+                        .arg(m_cardBgColor.name())
+                        .arg(m_cornerRadius);
+    }
     this->setStyleSheet(cardStyle);
 
     // Apply title style
@@ -178,7 +195,8 @@ void InfoCard::updateStyles()
     m_fileNameLabel->setStyleSheet(fileNameStyle);
     
     // Apply file size style
-    m_fileSizeLabel->setStyleSheet("background-color: transparent; color: #666;");
+    m_fileSizeLabel->setStyleSheet(QString("background-color: transparent; color: %1;").arg(m_fileSizeColor.name()));
+    m_timestampLabel->setStyleSheet(QString("color: %1; font-size: 10pt;").arg(m_timestampColor.name()));
 }
 
 InfoCard* InfoCard::setTitle(const QString &title)
@@ -212,6 +230,15 @@ InfoCard* InfoCard::setIcon(const QPixmap &pixmap)
 InfoCard* InfoCard::setCardBackgroundColor(const QColor &color)
 {
     m_cardBgColor = color;
+    m_useCustomBackground = false;
+    updateStyles();
+    return this;
+}
+
+InfoCard* InfoCard::setCardBackgroundGradient(const QString &style)
+{
+    m_customBackgroundStyle = style;
+    m_useCustomBackground = true;
     updateStyles();
     return this;
 }
@@ -244,6 +271,34 @@ InfoCard* InfoCard::setFileNameFont(const QFont &font)
     return this;
 }
 
+InfoCard* InfoCard::setFileSizeColor(const QColor &color)
+{
+    m_fileSizeColor = color;
+    updateStyles();
+    return this;
+}
+
+InfoCard* InfoCard::setTimestampColor(const QColor &color)
+{
+    m_timestampColor = color;
+    updateStyles();
+    return this;
+}
+
+InfoCard* InfoCard::setCornerRadius(int radius)
+{
+    m_cornerRadius = radius;
+    updateStyles();
+    return this;
+}
+
+InfoCard* InfoCard::setMessageDirection(bool isOutgoing)
+{
+    m_isOutgoing = isOutgoing;
+    setState(m_currentState);
+    return this;
+}
+
 QString InfoCard::title() const
 {
     return m_titleLabel->text();
@@ -267,95 +322,65 @@ InfoCard* InfoCard::setTimestamp(const QString &timestamp)
 
 void InfoCard::setState(State newState)
 {
-    qDebug() << "🔧 [InfoCard::setState] Called with state:" << (int)newState;
-    qDebug() << "🔧 [InfoCard] Current size before state change:" << size();
-    qDebug() << "🔧 [InfoCard] SizeHint before state change:" << sizeHint();
-    qDebug() << "🔧 [InfoCard] MinimumSizeHint before:" << minimumSizeHint();
-    
     m_currentState = newState;
     
     // ابتدا همه چیز را مخفی کن
     m_progressWidget->setVisible(false);
     m_statusWidget->setVisible(false);
-    
-    qDebug() << "🔧 [InfoCard] progressWidget hidden, statusWidget hidden";
 
     switch (newState) {
         case State::Idle_Downloadable:
-            qDebug() << "🔧 [InfoCard] State: Idle_Downloadable";
-            // کارت قابل کلیک است - هیچ ویجت اضافه‌ای نمی‌خواهد
+            // نمایش تایم‌استمپ برای فایل‌های دریافت شده که هنوز دانلود نشده‌اند
+            m_statusIconLabel->setText("⬇");
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt;")
+                                             .arg(m_isOutgoing ? "#8a94a6" : "#e7f1ff"));
+            m_statusWidget->setVisible(true);
             break;
         
         case State::In_Progress_Upload:
-            qDebug() << "🔧 [InfoCard] State: In_Progress_Upload";
             m_statusIconLabel->setText("🕒");
-            m_statusIconLabel->setStyleSheet("color: #999; font-size: 12pt;");
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt;")
+                                             .arg(m_isOutgoing ? "#8a94a6" : "#f5f7ff"));
             m_statusWidget->setVisible(true);
             m_progressWidget->setVisible(true);
-            qDebug() << "🔧 [InfoCard] progressWidget visible, statusWidget visible";
             break;
 
         case State::In_Progress_Download:
-            qDebug() << "🔧 [InfoCard] State: In_Progress_Download";
             m_statusWidget->setVisible(false);
             m_progressWidget->setVisible(true);
-            qDebug() << "🔧 [InfoCard] progressWidget visible, statusWidget hidden";
             break;
 
         case State::Completed_Sent:
-            qDebug() << "🔧 [InfoCard] State: Completed_Sent";
             m_statusIconLabel->setText("✓");
-            m_statusIconLabel->setStyleSheet("color: #34b7f1; font-size: 12pt; font-weight: bold;");
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt; font-weight: bold;")
+                                             .arg(m_isOutgoing ? "#1f6bff" : "#ffffff"));
             m_statusWidget->setVisible(true);
-            qDebug() << "🔧 [InfoCard] progressWidget hidden, statusWidget visible";
             break;
 
         case State::Completed_Pending:
-            qDebug() << "🔧 [InfoCard] State: Completed_Pending";
             m_statusIconLabel->setText("🕒");
-            m_statusIconLabel->setStyleSheet("color: #999; font-size: 12pt;");
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt;")
+                                             .arg(m_isOutgoing ? "#8a94a6" : "#f5f7ff"));
             m_statusWidget->setVisible(true);
-            qDebug() << "🔧 [InfoCard] progressWidget hidden, statusWidget visible";
             break;
 
         case State::Completed_Downloaded:
-            qDebug() << "🔧 [InfoCard] State: Completed_Downloaded";
-            // **FIX: فایل دریافت شده - نمایش timestamp + تیک**
             m_statusIconLabel->setText("✓");
-            m_statusIconLabel->setStyleSheet("color: #34b7f1; font-size: 12pt; font-weight: bold;");
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt; font-weight: bold;")
+                                             .arg(m_isOutgoing ? "#1f6bff" : "#ffffff"));
             m_statusWidget->setVisible(true);
-            qDebug() << "🔧 [InfoCard] progressWidget hidden, statusWidget visible";
             break;
     }
     
-    qDebug() << "🔧 [InfoCard] progressWidget isVisible:" << m_progressWidget->isVisible();
-    qDebug() << "🔧 [InfoCard] progressWidget size:" << m_progressWidget->size();
-    qDebug() << "🔧 [InfoCard] statusWidget isVisible:" << m_statusWidget->isVisible();
-    qDebug() << "🔧 [InfoCard] statusWidget size:" << m_statusWidget->size();
     
-    // **FIX: مجبور کردن layout به recalculate**
-    m_mainLayout->activate();
-    adjustSize();
-    
-    qDebug() << "🔧 [InfoCard] After adjustSize - size:" << size();
-    qDebug() << "🔧 [InfoCard] After adjustSize - sizeHint:" << sizeHint();
-    qDebug() << "🔧 [InfoCard] After adjustSize - minimumSizeHint:" << minimumSizeHint();
-    
-    // **CRITICAL FIX: قفل کردن ارتفاع جدید**
-    int newHeight = sizeHint().height();
-    setFixedHeight(newHeight);
-    qDebug() << "🔧 [InfoCard] Height locked to:" << newHeight;
+    qDebug() << "� [InfoCard] State:" << (int)newState << "| Size:" << size() << "| isOutgoing:" << m_isOutgoing;
     
     updateGeometry();
     
     // Force parent widget to relayout
     if (parentWidget() && parentWidget()->layout()) {
         parentWidget()->layout()->activate();
-        qDebug() << "🔧 [InfoCard] Parent layout activated";
     }
-    
-    qDebug() << "🔧 [InfoCard] Final size:" << size();
-    qDebug() << "========================================";
 }
 
 void InfoCard::updateProgress(qint64 bytesReceived, qint64 bytesTotal)

@@ -10,6 +10,13 @@ class ClientChatWindow;
 class WebSocketClient;
 class DatabaseManager;
 class MessageData;
+class TextMessage;
+class FileMessage;
+class AudioMessage;
+using TextMessageItem = TextMessage;
+using FileMessageItem = FileMessage;
+using VoiceMessageItem = AudioMessage;
+class MessageComponent;
 
 class ClientController : public QObject
 {
@@ -28,11 +35,27 @@ public slots:
 
 private slots:
     void onMessageReceived(const QString &message);
-    void onFileUploaded(const QString &fileName, const QString &url, qint64 fileSize, const QString &serverHost = "");
+    void onFileUploaded(const QString &fileName, const QString &url, qint64 fileSize, const QString &serverHost = "", const QVector<qreal> &waveform = QVector<qreal>());
+    void onTextMessageCopyRequested(const QString &text);
+    void onTextMessageEditRequested(TextMessageItem *item);
+    void onTextMessageDeleteRequested(TextMessageItem *item);
+    void onFileMessageDeleteRequested(FileMessageItem *item);
+    void onVoiceMessageDeleteRequested(VoiceMessageItem *item);
+    void onTextMessageEditConfirmed(TextMessageItem *item, const QString &newText);
 
 private:
     void loadHistory();
     QWidget* createWidgetFromData(const MessageData &msgData);
+    void setupTextMessageItem(TextMessageItem *item);
+    void setupFileMessageItem(FileMessageItem *item);
+    void setupVoiceMessageItem(VoiceMessageItem *item);
+    QStringList splitMessageIntoChunks(const QString &text) const;
+    enum class DeleteRequestScope {
+        Prompt,
+        MeOnly,
+        BothSides
+    };
+    void handleDeleteRequest(MessageComponent *item, DeleteRequestScope scope);
 
     ClientChatWindow *m_clientView;
     WebSocketClient *m_client;

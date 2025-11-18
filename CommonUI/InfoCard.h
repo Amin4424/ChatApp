@@ -43,6 +43,11 @@ public:
     InfoCard* setTitleFont(const QFont &font);
     InfoCard* setFileNameColor(const QColor &color);
     InfoCard* setFileNameFont(const QFont &font);
+    InfoCard* setFileSizeColor(const QColor &color);
+    InfoCard* setTimestampColor(const QColor &color);
+    InfoCard* setCornerRadius(int radius);
+    InfoCard* setCardBackgroundGradient(const QString &style);
+    InfoCard* setMessageDirection(bool isOutgoing);
 
     // State management
     void setState(State newState);
@@ -96,10 +101,16 @@ private:
 
     // Style member variables
     QColor m_cardBgColor;
+    QString m_customBackgroundStyle;
+    bool m_useCustomBackground = false;
+    int m_cornerRadius = 12;
     QColor m_titleColor;
     QFont m_titleFont;
     QColor m_fileNameColor;
     QFont m_fileNameFont;
+    QColor m_fileSizeColor;
+    QColor m_timestampColor;
+    bool m_isOutgoing = true;
     
     // Current state
     State m_currentState;

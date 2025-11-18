@@ -17,10 +17,10 @@ public:
     bool initDatabase();
     
     // Message operations
-    bool saveMessage(const QString &sender, const QString &receiver, const QString &message, const QDateTime &timestamp);
+    int saveMessage(const QString &sender, const QString &receiver, const QString &message, const QDateTime &timestamp, bool isEdited = false);
     QStringList loadAllMessages();
     QStringList loadMessagesBetween(const QString &user1, const QString &user2);
-    bool updateMessage(int messageId, const QString &newMessage);
+    bool updateMessage(int messageId, const QString &newMessage, bool isEdited = false);
     bool deleteMessage(int messageId);
     
     // Clear operations
@@ -28,6 +28,7 @@ public:
     
 private:
     bool createTables();
+    bool ensureIsEditedColumn();
     
     QSqlDatabase m_db;
     QString m_dbPath;

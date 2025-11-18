@@ -64,16 +64,46 @@ bool DatabaseManager::createTables()
         return false;
     }
     
+    if (!ensureIsEditedColumn()) {
+        return false;
+    }
+    
     qDebug() << "Database tables created successfully";
     return true;
 }
 
-bool DatabaseManager::saveMessage(const QString &sender, const QString &receiver, 
-                                   const QString &message, const QDateTime &timestamp)
+bool DatabaseManager::ensureIsEditedColumn()
+{
+    QSqlQuery pragmaQuery(m_db);
+    if (!pragmaQuery.exec("PRAGMA table_info(messages)")) {
+        qWarning() << "Failed to inspect messages table:" << pragmaQuery.lastError().text();
+        return false;
+    }
+    
+    bool hasIsEdited = false;
+    while (pragmaQuery.next()) {
+        if (pragmaQuery.value(1).toString().compare("is_edited", Qt::CaseInsensitive) == 0) {
+            hasIsEdited = true;
+            break;
+        }
+    }
+    
+    if (!hasIsEdited) {
+        QSqlQuery alterQuery(m_db);
+        if (!alterQuery.exec("ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0")) {
+            qWarning() << "Failed to add is_edited column:" << alterQuery.lastError().text();
+            return false;
+        }
+    }
+    return true;
+}
+
+int DatabaseManager::saveMessage(const QString &sender, const QString &receiver, 
+                                   const QString &message, const QDateTime &timestamp, bool isEdited)
 {
     QSqlQuery query(m_db);
-    query.prepare("INSERT INTO messages (sender, receiver, message, timestamp) "
-                  "VALUES (:sender, :receiver, :message, :timestamp)");
+    query.prepare("INSERT INTO messages (sender, receiver, message, timestamp, is_edited) "
+                  "VALUES (:sender, :receiver, :message, :timestamp, :is_edited)");
     // Ensure sender/receiver are not empty to satisfy NOT NULL constraints
     QString safeSender = sender;
     QString safeReceiver = receiver;
@@ -84,14 +114,15 @@ bool DatabaseManager::saveMessage(const QString &sender, const QString &receiver
     query.bindValue(":receiver", safeReceiver);
     query.bindValue(":message", message);
     query.bindValue(":timestamp", timestamp.toString(Qt::ISODate));
+    query.bindValue(":is_edited", isEdited ? 1 : 0);
     
     if (!query.exec()) {
         qWarning() << "Failed to save message:" << query.lastError().text();
-        return false;
+        return -1;
     }
     
     qDebug() << "Message saved: From" << sender << "to" << receiver;
-    return true;
+    return query.lastInsertId().toInt();
 }
 
 QStringList DatabaseManager::loadAllMessages()
@@ -131,7 +162,7 @@ QStringList DatabaseManager::loadMessagesBetween(const QString &user1, const QSt
     QStringList messages;
     QSqlQuery query(m_db);
     
-    query.prepare("SELECT sender, receiver, message, timestamp FROM messages "
+    query.prepare("SELECT id, sender, receiver, message, timestamp, is_edited FROM messages "
                   "WHERE (sender = :user1 AND receiver = :user2) OR (sender = :user2 AND receiver = :user1) "
                   "ORDER BY timestamp ASC");
     
@@ -144,10 +175,12 @@ QStringList DatabaseManager::loadMessagesBetween(const QString &user1, const QSt
     }
     
     while (query.next()) {
-        QString sender = query.value(0).toString();
-        QString receiver = query.value(1).toString();
-        QString message = query.value(2).toString();
-        QString timestamp = query.value(3).toString();
+        int id = query.value(0).toInt();
+        QString sender = query.value(1).toString();
+        QString receiver = query.value(2).toString();
+        QString message = query.value(3).toString();
+        QString timestamp = query.value(4).toString();
+        bool isEdited = query.value(5).toInt() != 0;
         
         QDateTime dt = QDateTime::fromString(timestamp, Qt::ISODate);
         QString timeStr = dt.toString("hh:mm");
@@ -163,7 +196,12 @@ QStringList DatabaseManager::loadMessagesBetween(const QString &user1, const QSt
         }
         
         // Format: TIMESTAMP|sender|message (using pipe as separator)
-        QString formattedMsg = QString("%1|%2|%3").arg(timeStr, label, message);
+        QString formattedMsg = QString("%1|%2|%3|%4|%5")
+                                   .arg(timeStr,
+                                        label,
+                                        QString::number(isEdited ? 1 : 0),
+                                        QString::number(id),
+                                        message);
         messages.append(formattedMsg);
     }
     
@@ -184,12 +222,13 @@ bool DatabaseManager::clearAllMessages()
     return true;
 }
 
-bool DatabaseManager::updateMessage(int messageId, const QString &newMessage)
+bool DatabaseManager::updateMessage(int messageId, const QString &newMessage, bool isEdited)
 {
     QSqlQuery query(m_db);
-    query.prepare("UPDATE messages SET message = :message WHERE id = :id");
+    query.prepare("UPDATE messages SET message = :message, is_edited = :is_edited WHERE id = :id");
     
     query.bindValue(":message", newMessage);
+    query.bindValue(":is_edited", isEdited ? 1 : 0);
     query.bindValue(":id", messageId);
     
     if (!query.exec()) {

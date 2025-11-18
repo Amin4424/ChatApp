@@ -15,8 +15,8 @@ if(WIN32 OR MINGW)
 endif()
 
 # Find Qt packages
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core WebSockets Widgets Sql Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core WebSockets Widgets Sql Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core WebSockets Widgets Sql Network Multimedia)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core WebSockets Widgets Sql Network Multimedia)
 
 
 # Find OpenSSL
@@ -87,13 +87,24 @@ add_library(CommonUI STATIC
     CommonUI/InfoCard.h
     CommonUI/BaseChatWindow.cpp
     CommonUI/BaseChatWindow.h
-    CommonUI/BaseMessageItem.cpp
-    CommonUI/BaseMessageItem.h
-    CommonUI/TextMessageItem.cpp
-    CommonUI/TextMessageItem.h
-    CommonUI/FileMessageItem.cpp
-    CommonUI/FileMessageItem.h
+    CommonUI/VoiceMessageWidget.cpp
+    CommonUI/VoiceMessageWidget.h
+    CommonUI/AudioWaveform.cpp
+    CommonUI/AudioWaveform.h
     CommonUI/MessageData.h
+    CommonUI/MessageAliases.h
+    CommonUI/ToastNotification.cpp
+    CommonUI/ToastNotification.h
+    CommonUI/AttachmentMessage.cpp
+    CommonUI/AttachmentMessage.h
+    CommonUI/AudioMessage.cpp
+    CommonUI/AudioMessage.h
+    CommonUI/FileMessage.cpp
+    CommonUI/FileMessage.h
+    CommonUI/MessageComponent.cpp
+    CommonUI/MessageComponent.h
+    CommonUI/TextMessage.cpp
+    CommonUI/TextMessage.h
 )
 
 target_include_directories(CommonUI PUBLIC
@@ -107,6 +118,7 @@ target_link_libraries(CommonUI PUBLIC
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Multimedia
     OpenSSL::SSL
     OpenSSL::Crypto
 )

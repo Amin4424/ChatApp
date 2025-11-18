@@ -15,6 +15,16 @@ struct FileInfo {
         : fileName(name), fileSize(size), fileUrl(url) {}
 };
 
+struct VoiceInfo {
+    QString url;
+    int duration = 0;
+    QVector<qreal> waveform; // Real waveform data
+    
+    VoiceInfo() = default;
+    VoiceInfo(const QString &voiceUrl, int durationSeconds, const QVector<qreal> &waveformData = QVector<qreal>())
+        : url(voiceUrl), duration(durationSeconds), waveform(waveformData) {}
+};
+
 // Main message data class
 class MessageData {
 public:
@@ -28,7 +38,11 @@ public:
     QString timestamp; // Just "hh:mm"
     SenderType senderType = User_Other;
     bool isFileMessage = false;
+    bool isVoiceMessage = false;
     FileInfo fileInfo;
+    VoiceInfo voiceInfo;
+    int databaseId = -1;
+    bool isEdited = false;
     
     MessageData() = default;
     

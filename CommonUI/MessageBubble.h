@@ -35,6 +35,8 @@ public:
     MessageBubble* setMessageType(MessageType type);
     MessageBubble* setTimestamp(const QString &timestamp);
     MessageBubble* setMessageStatus(Status status);  // NEW: Set message status
+    MessageBubble* setEdited(bool edited);
+    bool isEdited() const { return m_isEdited; }
 
     // Fluent API setters for styling
     MessageBubble* setBubbleBackgroundColor(const QColor &color);
@@ -50,6 +52,7 @@ public:
     MessageBubble* setBubbleStyleSheet(const QString &styleSheet);
     MessageBubble* setSenderLabelStyleSheet(const QString &styleSheet);
     MessageBubble* setMessageLabelStyleSheet(const QString &styleSheet);
+    MessageBubble* setEditedStyle(const QString &styleSheet);
 
     // Widget accessors for advanced customization
     QLabel* senderLabel() const { return m_senderLabel; }
@@ -66,6 +69,7 @@ private:
     QLabel *m_senderLabel;
     QLabel *m_messageLabel;
     QLabel *m_timestampLabel;
+    QLabel *m_editedLabel;
     QLabel *m_statusIconLabel;  // NEW: Add status icon label
     QVBoxLayout *m_mainLayout;
     
@@ -81,6 +85,7 @@ private:
     QFont m_senderFont;
     QColor m_messageTextColor;
     QFont m_messageFont;
+    bool m_isEdited = false;
 
     // Apply styles based on current style settings
     void updateStyles();

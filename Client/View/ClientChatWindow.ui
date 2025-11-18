@@ -288,6 +288,14 @@ QListWidget::item {
     padding: 0px;
     margin: 0px;
 }
+QListWidget::item:selected,
+QListWidget::item:selected:active,
+QListWidget::item:selected:!active,
+QListWidget::item:selected:hover {
+    background-color: transparent;
+    border: none;
+    outline: none;
+}
 /* --- END FIX --- */
 </string>
          </property>
@@ -370,8 +378,8 @@ QTextEdit:focus {
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QPushButton" name="sendFileBtn">
+      <item>
+       <widget class="QPushButton" name="sendFileBtn">
             <property name="minimumSize">
              <size>
               <width>60</width>
@@ -405,8 +413,46 @@ QPushButton:pressed {
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QPushButton" name="sendMessageBtn">
+      <item>
+       <widget class="QPushButton" name="recordVoiceBtn">
+        <property name="minimumSize">
+         <size>
+          <width>80</width>
+          <height>60</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>80</width>
+          <height>60</height>
+         </size>
+        </property>
+        <property name="toolTip">
+         <string>Record a voice message</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+    background-color: #128c7e;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13pt;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #0f7569;
+}
+QPushButton:pressed {
+    background-color: #0c5c52;
+}</string>
+        </property>
+        <property name="text">
+         <string>Rec</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="sendMessageBtn">
             <property name="minimumSize">
              <size>
               <width>80</width>

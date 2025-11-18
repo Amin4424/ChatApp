@@ -7,8 +7,8 @@
 #include <QEvent>
 #include <QObject>
 
-// Forward declaration to avoid circular dependency
-class TextMessageItem;
+// Include aliases for backward compatibility
+#include "MessageAliases.h"
 
 class BaseChatWindow : public QMainWindow
 {
