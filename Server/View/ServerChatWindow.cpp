@@ -1,5 +1,7 @@
 #include "View/ServerChatWindow.h"
 #include "ui_ServerChatWindow.h"
+#include "ModernThemeApplier.h"
+#include "ModernTheme.h"
 #include <QPushButton>
 #include <QDebug>
 #include <QKeyEvent>
@@ -111,6 +113,40 @@ ServerChatWindow::ServerChatWindow(QWidget *parent)
     
     updateInputModeButtons();
     updateSendButtonForEditState();
+    
+    // Apply Modern Theme
+    applyModernTheme();
+}
+
+void ServerChatWindow::applyModernTheme()
+{
+    ModernThemeApplier::applyToMainWindow(this);
+
+    // Apply to headers - FORCE white backgrounds
+    if (ui->chatHeader) {
+        ModernThemeApplier::applyToHeader(ui->chatHeader);
+    }
+    
+    // Apply to main components
+    ModernThemeApplier::applyToPrimaryButton(ui->sendMessageBtn);
+    ModernThemeApplier::applyToIconButton(ui->sendFileBtn);
+    if (ui->recordVoiceBtn) {
+        ModernThemeApplier::applyToIconButton(ui->recordVoiceBtn);
+    }
+    ModernThemeApplier::applyToTextInput(ui->typeMessageTxt);
+    ModernThemeApplier::applyToListWidget(ui->userListWdgt);
+    ModernThemeApplier::applyToChatArea(ui->chatHistoryWdgt);
+    
+    // Apply to sidebar
+    if (ui->serverInfoSection) {
+        ModernThemeApplier::applyToSidebar(ui->serverInfoSection);
+    }
+    
+    // Apply to restart button as support banner with new text
+    if (ui->restartServerBtn) {
+        ui->restartServerBtn->setText(tr("Having trouble?\nContact Technical Support"));
+        ModernThemeApplier::applyToSupportBanner(ui->restartServerBtn);
+    }
 }
 
 ServerChatWindow::~ServerChatWindow()
@@ -225,7 +261,8 @@ void ServerChatWindow::updateUserList(const QStringList &users)
 
 void ServerChatWindow::updateUserCount(int count)
 {
-    ui->userCountLabel->setText(QString("Connected Users: %1").arg(count));
+    // Update the title to show count instead of separate label
+    ui->userListTitle->setText(QString("Recent Conversations (%1)").arg(count));
 }
 
 void ServerChatWindow::setPrivateChatMode(const QString &userId)
@@ -235,18 +272,18 @@ void ServerChatWindow::setPrivateChatMode(const QString &userId)
 
     // Update UI to show private chat mode
     ui->chatTitleLabel->setText(QString("Private Chat with %1").arg(userId));
-    ui->chatTitleLabel->setStyleSheet("font-size: 14pt; font-weight: bold; padding: 0px; color: #ffffff;");
+    ui->chatTitleLabel->setStyleSheet("font-size: 14pt; font-weight: bold; padding: 0px; color: #2C2C2C;");
 
     ui->chatSubtitleLabel->setText("Only this user will see your messages");
-    ui->chatSubtitleLabel->setStyleSheet("font-size: 10pt; padding: 2px; color: #ffffff;");
+    ui->chatSubtitleLabel->setStyleSheet("font-size: 10pt; padding: 2px; color: #666666;");
 
-    // Find the chatHeader widget and change its color to indicate private mode
+    // Keep the chatHeader white with modern theme
     QWidget *header = this->findChild<QWidget*>("chatHeader");
     if (header) {
         header->setStyleSheet(
             "QWidget#chatHeader {"
-            "    background-color: #075e54;"
-            "    border-bottom: 1px solid #0066cc;"
+            "    background-color: #FFFFFF;"
+            "    border-bottom: 1px solid #E0E0E0;"
             "}"
             );
     }
@@ -261,18 +298,18 @@ void ServerChatWindow::setBroadcastMode()
 
     // Update UI to show broadcast mode
     ui->chatTitleLabel->setText("Public Chat");
-    ui->chatTitleLabel->setStyleSheet("font-size: 14pt; font-weight: bold; padding: 0px; color: #ffffff;");
+    ui->chatTitleLabel->setStyleSheet("font-size: 14pt; font-weight: bold; padding: 0px; color: #2C2C2C;");
 
     ui->chatSubtitleLabel->setText("Your messages will be sent to everyone");
-    ui->chatSubtitleLabel->setStyleSheet("font-size: 10pt; padding: 2px; color: #ffffff;");
+    ui->chatSubtitleLabel->setStyleSheet("font-size: 10pt; padding: 2px; color: #666666;");
 
-    // Find the chatHeader widget and reset to green color
+    // Keep the chatHeader white with modern theme
     QWidget *header = this->findChild<QWidget*>("chatHeader");
     if (header) {
         header->setStyleSheet(
             "QWidget#chatHeader {"
-            "    background-color: #075e54;"
-            "    border-bottom: 1px solid #055346;"
+            "    background-color: #FFFFFF;"
+            "    border-bottom: 1px solid #E0E0E0;"
             "}"
             );
     }

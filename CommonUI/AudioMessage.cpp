@@ -82,17 +82,19 @@ void AudioMessage::setupUI()
     connect(m_voiceWidget, &VoiceMessageWidget::sliderSeeked, this, &AudioMessage::onSliderSeeked);
 
     if (isOutgoing(m_direction)) {
-        mainLayout->addStretch(1);
+        // SWAPPED: Outgoing messages now go to LEFT
+        mainLayout->addWidget(m_voiceWidget);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
-        mainLayout->addWidget(m_voiceWidget);
+        mainLayout->addStretch(1);
     } else {
-        mainLayout->addWidget(m_voiceWidget);
+        // SWAPPED: Incoming messages now go to RIGHT
+        mainLayout->addStretch(1);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
-        mainLayout->addStretch(1);
+        mainLayout->addWidget(m_voiceWidget);
     }
 
     if (m_isDownloaded) {

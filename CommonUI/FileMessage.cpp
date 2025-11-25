@@ -72,11 +72,12 @@ void FileMessage::setupUI()
         m_isDownloaded = true;
         setCompletedState();
 
-        mainLayout->addStretch(1);
+        // SWAPPED: Outgoing messages now go to LEFT
+        mainLayout->addWidget(m_infoCard);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
-        mainLayout->addWidget(m_infoCard);
+        mainLayout->addStretch(1);
     } else {
         m_infoCard->setMessageDirection(false)
                   ->setCardBackgroundGradient("background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #7ec7ff, stop:1 #2e6bff); border: none;")
@@ -88,11 +89,12 @@ void FileMessage::setupUI()
         m_isDownloaded = false;
         setIdleState();
 
-        mainLayout->addWidget(m_infoCard);
+        // SWAPPED: Incoming messages now go to RIGHT
+        mainLayout->addStretch(1);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
-        mainLayout->addStretch(1);
+        mainLayout->addWidget(m_infoCard);
     }
 
     qDebug() << "[FileMessage] Created | Direction:"

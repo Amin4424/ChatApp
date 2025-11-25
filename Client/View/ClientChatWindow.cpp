@@ -41,6 +41,8 @@
 #include "TextMessage.h"
 #include "InfoCard.h"
 #include "ToastNotification.h"
+#include "ModernThemeApplier.h"
+#include "ModernTheme.h"
 // ---
 
 ClientChatWindow::ClientChatWindow(QWidget *parent)
@@ -107,6 +109,35 @@ ClientChatWindow::ClientChatWindow(QWidget *parent)
 
     updateInputModeButtons();
     updateSendButtonForEditState();
+    
+    // Apply Modern Theme
+    applyModernTheme();
+}
+
+void ClientChatWindow::applyModernTheme()
+{
+    // Apply to header - FORCE white background
+    if (ui->chatHeader) {
+        ModernThemeApplier::applyToHeader(ui->chatHeader);
+    }
+    
+    // Apply to main components
+    ModernThemeApplier::applyToPrimaryButton(ui->sendMessageBtn);
+    ModernThemeApplier::applyToIconButton(ui->sendFileBtn);
+    if (ui->recordVoiceBtn) {
+        ModernThemeApplier::applyToIconButton(ui->recordVoiceBtn);
+    }
+    ModernThemeApplier::applyToTextInput(ui->typeMessageTxt);
+    ModernThemeApplier::applyToChatArea(ui->chatHistoryWdgt);
+    
+    // Apply to reconnect button as secondary button with new text
+    if (ui->reconnectBtn) {
+        ui->reconnectBtn->setText(tr("Having trouble?\nContact Technical Support"));
+        ModernThemeApplier::applyToSecondaryButton(ui->reconnectBtn);
+    }
+    
+    // Set overall window background
+    setStyleSheet("QMainWindow { background-color: " + ModernTheme::CHAT_BACKGROUND + "; }");
 }
 
 ClientChatWindow::~ClientChatWindow()

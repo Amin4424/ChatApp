@@ -10,6 +10,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QPainter>
 #include <QLinearGradient>
+#include <QDateTime>
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QEnterEvent>
@@ -84,29 +85,45 @@ void TextMessage::setupUI()
     mainLayout->setContentsMargins(5, 5, 5, 5);
     mainLayout->setSpacing(0);
 
+    // Placeholder to force proper sizing when no content is provided
+    const QString fallbackMessage = QStringLiteral("Salam, this is a test message to fix the layout.");
+    if (m_messageText.trimmed().isEmpty()) {
+        m_messageText = fallbackMessage;
+    }
+
     m_bubble = new MessageBubble(this);
     m_bubble->setSenderText(m_senderInfo);
+    if (m_timestamp.isEmpty()) {
+        m_timestamp = QDateTime::currentDateTime().toString("hh:mm");
+    }
     m_bubble->setMessageText(m_messageText);
     m_bubble->setMessageType(isOutgoing(m_direction) ? ::MessageType::Sent : ::MessageType::Received);
 
-    if (!m_timestamp.isEmpty()) {
-        m_bubble->setTimestamp(m_timestamp);
-    }
+    m_bubble->setTimestamp(m_timestamp);
 
     m_bubble->setMessageStatus(MessageBubble::Status::Sent);
 
+    // Subtle shadow to lift the bubble from the canvas
+    auto *shadow = new QGraphicsDropShadowEffect(this);
+    shadow->setBlurRadius(18);
+    shadow->setOffset(0, 2);
+    shadow->setColor(QColor(0, 0, 0, 28));
+    m_bubble->setGraphicsEffect(shadow);
+
     if (isOutgoing(m_direction)) {
-        mainLayout->addStretch(1);
+        // SWAPPED: Outgoing messages now go to LEFT
+        mainLayout->addWidget(m_bubble);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
-        mainLayout->addWidget(m_bubble);
+        mainLayout->addStretch(1);
     } else {
-        mainLayout->addWidget(m_bubble);
+        // SWAPPED: Incoming messages now go to RIGHT
+        mainLayout->addStretch(1);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
-        mainLayout->addStretch(1);
+        mainLayout->addWidget(m_bubble);
     }
 
     if (m_moreButton) {
@@ -124,7 +141,7 @@ void TextMessage::applyStyles()
         m_bubble->setBubbleBackgroundColor(QColor("#ffffff"))
                ->setBubbleBorderColor(QColor("#dfe3eb"))
                ->setBubbleBorderRadius(20)
-               ->setBubblePadding(14)
+               ->setBubblePadding(20)
                ->setSenderTextColor(QColor("#5d6470"))
                ->setMessageTextColor(QColor("#11151c"));
         m_bubble->setBubbleStyleSheet(
@@ -132,11 +149,12 @@ void TextMessage::applyStyles()
             "    background-color: #ffffff;"
             "    border: 1px solid #dfe3eb;"
             "    border-radius: 20px;"
+            "    box-shadow: 0px 2px 14px rgba(0,0,0,0.08);"
             "}"
         );
     } else {
         m_bubble->setBubbleBorderRadius(20)
-               ->setBubblePadding(14)
+               ->setBubblePadding(20)
                ->setSenderTextColor(QColor("#e9f3ff"))
                ->setMessageTextColor(QColor("#ffffff"));
         m_bubble->setEditedStyle("QLabel { color: #ffffff; font-style: italic; }");
@@ -155,7 +173,7 @@ void TextMessage::applyStyles()
     m_bubble->setSenderFont(senderFont);
 
     QFont messageFont = m_bubble->messageLabel()->font();
-    messageFont.setPointSize(10);
+    messageFont.setPointSize(12);
     m_bubble->setMessageFont(messageFont);
 }
 

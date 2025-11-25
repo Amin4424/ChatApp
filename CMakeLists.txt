@@ -93,6 +93,9 @@ add_library(CommonUI STATIC
     CommonUI/AudioWaveform.h
     CommonUI/MessageData.h
     CommonUI/MessageAliases.h
+    CommonUI/ModernTheme.h
+    CommonUI/ModernThemeApplier.cpp
+    CommonUI/ModernThemeApplier.h
     CommonUI/ToastNotification.cpp
     CommonUI/ToastNotification.h
     CommonUI/AttachmentMessage.cpp

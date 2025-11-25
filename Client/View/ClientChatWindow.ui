@@ -168,20 +168,7 @@ QWidget#centralwidget {
           </size>
          </property>
          <property name="styleSheet">
-          <string notr="true">QPushButton {
-    background-color: #075e54;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 11pt;
-    padding: 8px;
-}
-QPushButton:hover {
-    background-color: #0a7c6f;
-}
-QPushButton:pressed {
-    background-color: #055346;
-}</string>
+          <string notr="true"/>
          </property>
          <property name="text">
           <string>Reset and Reconnect</string>
@@ -230,15 +217,15 @@ QPushButton:pressed {
          </property>
          <property name="styleSheet">
           <string notr="true">QWidget#chatHeader {
-    background-color: #075e54;
-    border-bottom: 1px solid #055346;
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E0E0E0;
 }</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
            <widget class="QLabel" name="chatTitleLabel">
             <property name="styleSheet">
-             <string notr="true">font-size: 14pt; font-weight: bold; padding: 0px; color: white;</string>
+             <string notr="true">font-size: 14pt; font-weight: bold; padding: 0px; color: #2C2C2C;</string>
             </property>
             <property name="text">
              <string>Chat with Server</string>
@@ -251,7 +238,7 @@ QPushButton:pressed {
           <item>
            <widget class="QLabel" name="chatSubtitleLabel">
             <property name="styleSheet">
-             <string notr="true">font-size: 10pt; padding: 2px; color: #ffffff;</string>
+             <string notr="true">font-size: 10pt; padding: 2px; color: #666666;</string>
             </property>
             <property name="text">
              <string>Connected to Server</string>
@@ -393,20 +380,7 @@ QTextEdit:focus {
              </size>
             </property>
             <property name="styleSheet">
-             <string notr="true">QPushButton {
-    background-color: #075e54;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14pt;
-    font-weight: bold;
-}
-QPushButton:hover {
-    background-color: #0a7c6f;
-}
-QPushButton:pressed {
-    background-color: #055346;
-}</string>
+             <string notr="true"/>
             </property>
             <property name="text">
              <string>+</string>
@@ -431,20 +405,7 @@ QPushButton:pressed {
          <string>Record a voice message</string>
         </property>
         <property name="styleSheet">
-         <string notr="true">QPushButton {
-    background-color: #128c7e;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 13pt;
-    font-weight: bold;
-}
-QPushButton:hover {
-    background-color: #0f7569;
-}
-QPushButton:pressed {
-    background-color: #0c5c52;
-}</string>
+         <string notr="true"/>
         </property>
         <property name="text">
          <string>Rec</string>

@@ -108,6 +108,7 @@ private:
     QIcon m_sendButtonEditIcon;
 
     void updateSendButtonForEditState();
+    void applyModernTheme();
 };
 
 #endif // SERVERCHATWINDOW_H

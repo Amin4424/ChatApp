@@ -1,4 +1,5 @@
 #include "MessageBubble.h"
+#include "ModernTheme.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 
@@ -6,7 +7,7 @@ MessageBubble::MessageBubble(QWidget *parent)
     : QFrame(parent),
       m_messageType(Received),
       m_bubbleBorderRadius(10),
-      m_bubblePadding(10)
+      m_bubblePadding(20)
 {
     setupUI();
     applyDefaultStyles();
@@ -68,7 +69,7 @@ void MessageBubble::setupUI()
     
     // Create main layout
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(m_bubblePadding, 8, m_bubblePadding, 8);
+    m_mainLayout->setContentsMargins(m_bubblePadding, m_bubblePadding, m_bubblePadding, m_bubblePadding);
     m_mainLayout->setSpacing(4);
     m_mainLayout->addWidget(m_senderLabel);
     m_mainLayout->addWidget(m_messageLabel);
@@ -77,6 +78,7 @@ void MessageBubble::setupUI()
     QHBoxLayout *bottomLayout = new QHBoxLayout();
     bottomLayout->setContentsMargins(0, 0, 0, 0);
     bottomLayout->setSpacing(4);
+    bottomLayout->setAlignment(Qt::AlignRight | Qt::AlignBottom);
     bottomLayout->addStretch(1);  // Spacer to push to the right
     bottomLayout->addWidget(m_editedLabel);
     bottomLayout->addWidget(m_timestampLabel);
@@ -84,10 +86,11 @@ void MessageBubble::setupUI()
     
     m_mainLayout->addLayout(bottomLayout);  // Add bottom layout to main layout
     
-    // Configure the bubble frame
+    // Configure the bubble frame with sensible minimum width so content is readable
     setFrameShape(QFrame::NoFrame);
-    setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
-    setMaximumWidth(450);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    setMinimumWidth(260);
+    setMaximumWidth(600);
 }
 
 MessageBubble::~MessageBubble()
@@ -169,7 +172,7 @@ MessageBubble* MessageBubble::setBubblePadding(int padding)
 {
     m_bubblePadding = padding;
     if (layout()) {
-        layout()->setContentsMargins(padding, 8, padding, 8);
+        layout()->setContentsMargins(padding, padding, padding, padding);
     }
     return this;
 }
@@ -231,20 +234,24 @@ MessageBubble* MessageBubble::setEditedStyle(const QString &styleSheet)
 
 void MessageBubble::applyDefaultStyles()
 {
-    // Set default colors based on message type
+    // Set default colors based on message type using Modern Theme
     switch (m_messageType) {
     case Sent:
-        m_bubbleBgColor = QColor("#a0e97e");
-        m_bubbleBorderColor = QColor("#8dd06a");
-        m_senderTextColor = QColor("#666666");
-        m_messageTextColor = QColor("#000000");
+        // OUTGOING MESSAGES: Medium Gray with Dark Text
+        m_bubbleBgColor = QColor(ModernTheme::OUTGOING_BUBBLE_BG);
+        m_bubbleBorderColor = QColor(ModernTheme::OUTGOING_BUBBLE_BG).darker(110);
+        m_senderTextColor = QColor(ModernTheme::OUTGOING_BUBBLE_TEXT);
+        m_messageTextColor = QColor(ModernTheme::OUTGOING_BUBBLE_TEXT);
+        m_bubbleBorderRadius = ModernTheme::BUBBLE_RADIUS;
         break;
         
     case Received:
-        m_bubbleBgColor = QColor("#ffffff");
-        m_bubbleBorderColor = QColor("#e0e0e0");
-        m_senderTextColor = QColor("#075e54");
-        m_messageTextColor = QColor("#000000");
+        // INCOMING MESSAGES: Bright Blue with White Text
+        m_bubbleBgColor = QColor(ModernTheme::INCOMING_BUBBLE_BG);
+        m_bubbleBorderColor = QColor(ModernTheme::INCOMING_BUBBLE_BG);
+        m_senderTextColor = QColor(ModernTheme::INCOMING_BUBBLE_TEXT);
+        m_messageTextColor = QColor(ModernTheme::INCOMING_BUBBLE_TEXT);
+        m_bubbleBorderRadius = ModernTheme::BUBBLE_RADIUS;
         break;
     }
 }
@@ -257,6 +264,7 @@ void MessageBubble::updateStyles()
         "    background-color: %1;"
         "    border: 1px solid %2;"
         "    border-radius: %3px;"
+        "    padding: 0px;"
         "}"
     ).arg(m_bubbleBgColor.name())
      .arg(m_bubbleBorderColor.name())

@@ -16,6 +16,7 @@
 #include <QGuiApplication>
 #include <QMessageBox>
 #include <QCheckBox>
+#include <QRegularExpression>
 
 namespace {
 constexpr int kMaxMessageLength = 1800;
@@ -597,7 +598,12 @@ void ServerController::loadHistoryForServer()
         } else {
             msgData.isFileMessage = false;
             msgData.isVoiceMessage = false;
-            msgData.text = messageContent;
+            // Check if message looks encrypted/unreadable
+            if (messageContent.trimmed().isEmpty() || messageContent.contains(QRegularExpression("^[^a-zA-Z0-9\\s]{3,}$"))) {
+                msgData.text = "(encrypted message - key unavailable)";
+            } else {
+                msgData.text = messageContent;
+            }
         }
         
         QWidget* itemWidget = createWidgetFromData(msgData);
@@ -679,7 +685,12 @@ void ServerController::loadHistoryForUser(const QString &userId)
         } else {
             msgData.isFileMessage = false;
             msgData.isVoiceMessage = false;
-            msgData.text = messageContent;
+            // Check if message looks encrypted/unreadable
+            if (messageContent.trimmed().isEmpty() || messageContent.contains(QRegularExpression("^[^a-zA-Z0-9\\s]{3,}$"))) {
+                msgData.text = "(encrypted message - key unavailable)";
+            } else {
+                msgData.text = messageContent;
+            }
         }
         
         QWidget* itemWidget = createWidgetFromData(msgData);

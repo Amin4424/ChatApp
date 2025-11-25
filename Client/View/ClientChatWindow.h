@@ -101,6 +101,7 @@ private:
     QIcon m_sendButtonEditIcon;
 
     void updateSendButtonForEditState();
+    void applyModernTheme();
 };
 
 #endif // CLIENTCHATWINDOW_H

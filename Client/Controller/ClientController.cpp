@@ -16,6 +16,7 @@
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QCheckBox>
+#include <QRegularExpression>
 
 namespace {
 constexpr int kMaxMessageLength = 1800;
@@ -622,7 +623,12 @@ void ClientController::loadHistory()
         } else {
             msgData.isFileMessage = false;
             msgData.isVoiceMessage = false;
-            msgData.text = messageContent;
+            // Check if message looks encrypted/unreadable
+            if (messageContent.trimmed().isEmpty() || messageContent.contains(QRegularExpression("^[^a-zA-Z0-9\\s]{3,}$"))) {
+                msgData.text = "(encrypted message - key unavailable)";
+            } else {
+                msgData.text = messageContent;
+            }
         }
         
         // Create widget(s) and add to view
