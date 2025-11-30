@@ -35,6 +35,7 @@ public:
 
 signals:
     void deleteRequested(FileMessage *item);
+    void sizeChanged();
 
 protected:
     void setupUI() override;

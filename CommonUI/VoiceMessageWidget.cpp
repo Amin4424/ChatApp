@@ -35,6 +35,7 @@ WaveformWidget::WaveformWidget(QWidget *parent)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     setMinimumHeight(36);
+    setAttribute(Qt::WA_TranslucentBackground);
 }
 
 void WaveformWidget::setPlaybackProgress(qreal progress)
@@ -176,7 +177,7 @@ void VoiceMessageWidget::setupUI()
 
     m_statusIconLabel = new QLabel("", this);
     bottomLayout->addWidget(m_statusIconLabel, 0, Qt::AlignRight);
-
+    
     centerLayout->addLayout(bottomLayout);
     mainLayout->addLayout(centerLayout);
 }
@@ -191,10 +192,16 @@ void VoiceMessageWidget::setStatus(MessageBubble::Status status)
     case MessageBubble::Status::Pending:
         m_statusIconLabel->setText("🕒");
         m_statusIconLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(pendingColor));
+        m_statusIconLabel->setFixedSize(20, 20); // Set desired width and height
+        m_statusIconLabel->setStyleSheet(m_statusIconLabel->styleSheet() + "background-color: transparent;");
+        m_statusIconLabel->setAlignment(Qt::AlignCenter); // Optional: center the icon/text
         break;
     case MessageBubble::Status::Sent:
         m_statusIconLabel->setText("✓");
         m_statusIconLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(sentColor));
+        m_statusIconLabel->setFixedSize(20, 20); // Set desired width and height
+        m_statusIconLabel->setStyleSheet(m_statusIconLabel->styleSheet() + "background-color: transparent; font-size:10pt");
+        m_statusIconLabel->setAlignment(Qt::AlignCenter);
         break;
     default:
         m_statusIconLabel->clear();
@@ -205,6 +212,7 @@ void VoiceMessageWidget::setStatus(MessageBubble::Status status)
 void VoiceMessageWidget::setTimestamp(const QString &time)
 {
     m_timestampLabel->setText(time);
+    m_timestampLabel->setStyleSheet("background-color: transparent; color: #8a94a6; font-size: 8pt;");
 }
 
 void VoiceMessageWidget::setDuration(int totalSeconds)
@@ -216,8 +224,11 @@ void VoiceMessageWidget::setDuration(int totalSeconds)
     if (m_totalDuration == 0) {
         m_durationLabel->setText("00:00");
     } else {
-        m_durationLabel->setText(QString("%1 / %2").arg(formatTime(0), formatTime(m_totalDuration)));
+        // Only show total duration to prevent resizing
+        m_durationLabel->setText(formatTime(m_totalDuration));
     }
+    // If you want to ensure the text color is set, use:
+    m_durationLabel->setStyleSheet("background-color: transparent; color: #000000; font-size:  9pt; ");
 }
 
 void VoiceMessageWidget::setCurrentTime(int currentSeconds)
@@ -230,9 +241,9 @@ void VoiceMessageWidget::setCurrentTime(int currentSeconds)
         m_playbackSlider->setValue(currentSeconds);
     }
 
-    if (m_totalDuration > 0) {
-        m_durationLabel->setText(QString("%1 / %2").arg(formatTime(currentSeconds), formatTime(m_totalDuration)));
-    } else {
+    // Do not update text with current time to keep size constant
+    // Only update if we don't have a total duration yet
+    if (m_totalDuration <= 0) {
         m_durationLabel->setText(formatTime(currentSeconds));
     }
 }
@@ -264,7 +275,8 @@ void VoiceMessageWidget::setDownloadProgress(qint64 bytes, qint64 total)
         m_playbackSlider->setEnabled(true);
         m_playbackSlider->setRange(0, m_totalDuration);
         m_playbackSlider->setValue(0);
-        m_durationLabel->setText(QString("%1 / %2").arg(formatTime(0), formatTime(m_totalDuration)));
+        // Only show total duration
+        m_durationLabel->setText(formatTime(m_totalDuration));
     }
 }
 
@@ -284,7 +296,8 @@ void VoiceMessageWidget::showIdleState()
     m_playbackSlider->setValue(0);
 
     if (m_totalDuration > 0) {
-        m_durationLabel->setText(QString("%1 / %2").arg(formatTime(0), formatTime(m_totalDuration)));
+        // Only show total duration
+        m_durationLabel->setText(formatTime(m_totalDuration));
     } else {
         m_durationLabel->setText("00:00");
     }
@@ -341,9 +354,9 @@ void VoiceMessageWidget::applyTheme()
     m_playPauseButton->setStyleSheet(QString(
         "QToolButton { border: none; border-radius: 18px; background-color: %1; }")
         .arg(colorToCss(m_playButtonBgColor)));
-    m_durationLabel->setStyleSheet(QString("color: %1; font-weight: 600;").arg(colorToCss(m_textColor)));
-    m_timestampLabel->setStyleSheet(QString("color: %1;").arg(colorToCss(m_textColor)));
-    m_statusIconLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(colorToCss(m_statusColor)));
+    m_durationLabel->setStyleSheet(QString("background-color: transparent; color: %1; font-weight: 600;").arg(colorToCss(m_textColor)));
+    m_timestampLabel->setStyleSheet(QString("background-color: transparent; color: %1;").arg(colorToCss(m_textColor)));
+    m_statusIconLabel->setStyleSheet(QString("background-color: transparent; color: %1; font-weight: bold;").arg(colorToCss(m_statusColor)));
     if (m_waveformWidget) {
         m_waveformWidget->setColors(m_waveformBgColor, m_waveformPlayedColor, m_waveformUnplayedColor);
     }

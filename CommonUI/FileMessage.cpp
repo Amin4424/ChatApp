@@ -12,6 +12,8 @@
 #include <QLinearGradient>
 #include <QPixmap>
 #include <QEvent>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QEnterEvent>
 #endif
@@ -58,21 +60,32 @@ void FileMessage::setupUI()
     m_infoCard->setTimestamp(m_timestamp);
     m_infoCard->setCornerRadius(20);
 
+    // Subtle shadow to lift the card from the canvas (matching TextMessage)
+    auto *shadow = new QGraphicsDropShadowEffect(this);
+    shadow->setBlurRadius(18);
+    shadow->setOffset(0, 2);
+    shadow->setColor(QColor(0, 0, 0, 28));
+    m_infoCard->setGraphicsEffect(shadow);
+
     connect(m_infoCard, &InfoCard::cardClicked, this, &FileMessage::onClicked);
+    connect(m_infoCard, &InfoCard::sizeChanged, this, &FileMessage::sizeChanged);
 
     if (isOutgoing(m_direction)) {
         m_infoCard->setMessageDirection(true)
                   ->setCardBackgroundColor(QColor("#ffffff"))
                   ->setTitleColor(QColor("#6b7387"))
-                  ->setFileNameColor(QColor("#11151c"))
+                  ->setFileNameColor(QColor("#000000"))
                   ->setFileSizeColor(QColor("#7e879a"))
                   ->setTimestampColor(QColor("#8a94a6"));
+
+        // Larger font for better visibility
+        m_infoCard->setFileNameFont(QFont("Arial", 12, QFont::Bold));
 
         m_isSent = true;
         m_isDownloaded = true;
         setCompletedState();
 
-        // SWAPPED: Outgoing messages now go to LEFT
+        // Outgoing (your) files align to LEFT
         mainLayout->addWidget(m_infoCard);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
@@ -86,10 +99,13 @@ void FileMessage::setupUI()
                   ->setFileSizeColor(QColor("#dceaff"))
                   ->setTimestampColor(QColor("#e7f1ff"));
 
+        // Larger font for better visibility
+        m_infoCard->setFileNameFont(QFont("Arial", 12, QFont::Bold));
+
         m_isDownloaded = false;
         setIdleState();
 
-        // SWAPPED: Incoming messages now go to RIGHT
+        // Incoming files align to RIGHT
         mainLayout->addStretch(1);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
@@ -286,9 +302,19 @@ void FileMessage::showActionMenu()
         menuPos.setX(buttonRight.x() + spacing);
     }
 
-    const int y = cardTopLeft.y() + (m_infoCard->height() - menuSize.height()) / 2;
+    int y = cardTopLeft.y() + (m_infoCard->height() - menuSize.height()) / 2;
     menuPos.setY(y);
+    
+    // Fade in animation for menu
+    m_actionMenu->setWindowOpacity(0.0);
     m_actionMenu->popup(menuPos);
+    
+    QPropertyAnimation *a = new QPropertyAnimation(m_actionMenu, "windowOpacity");
+    a->setDuration(150);
+    a->setStartValue(0.0);
+    a->setEndValue(1.0);
+    a->setEasingCurve(QEasingCurve::OutQuad);
+    a->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 QIcon FileMessage::deleteIcon(bool emphasizeGlobal) const
@@ -347,7 +373,23 @@ void FileMessage::enterEvent(QEvent *event)
 #endif
 {
     if (m_moreButton) {
-        m_moreButton->show();
+        QGraphicsOpacityEffect *eff = qobject_cast<QGraphicsOpacityEffect*>(m_moreButton->graphicsEffect());
+        if (!eff) {
+            eff = new QGraphicsOpacityEffect(m_moreButton);
+            m_moreButton->setGraphicsEffect(eff);
+        }
+        
+        if (!m_moreButton->isVisible()) {
+            eff->setOpacity(0.0);
+            m_moreButton->show();
+        }
+
+        QPropertyAnimation *a = new QPropertyAnimation(eff, "opacity");
+        a->setDuration(150);
+        a->setStartValue(eff->opacity());
+        a->setEndValue(1.0);
+        a->setEasingCurve(QEasingCurve::OutQuad);
+        a->start(QAbstractAnimation::DeleteWhenStopped);
     }
     QWidget::enterEvent(event);
 }
@@ -355,7 +397,19 @@ void FileMessage::enterEvent(QEvent *event)
 void FileMessage::leaveEvent(QEvent *event)
 {
     if (m_moreButton && !m_menuVisible) {
-        m_moreButton->hide();
+        QGraphicsOpacityEffect *eff = qobject_cast<QGraphicsOpacityEffect*>(m_moreButton->graphicsEffect());
+        if (!eff) {
+            eff = new QGraphicsOpacityEffect(m_moreButton);
+            m_moreButton->setGraphicsEffect(eff);
+        }
+
+        QPropertyAnimation *a = new QPropertyAnimation(eff, "opacity");
+        a->setDuration(150);
+        a->setStartValue(eff->opacity());
+        a->setEndValue(0.0);
+        a->setEasingCurve(QEasingCurve::OutQuad);
+        connect(a, &QPropertyAnimation::finished, m_moreButton, &QToolButton::hide);
+        a->start(QAbstractAnimation::DeleteWhenStopped);
     }
     QWidget::leaveEvent(event);
 }

@@ -10,9 +10,9 @@ InfoCard::InfoCard(QWidget *parent)
       m_cardBgColor(Qt::white),
       m_customBackgroundStyle(""),
       m_useCustomBackground(false),
-      m_cornerRadius(12),
+      m_cornerRadius(6),
       m_titleColor(Qt::gray),
-      m_titleFont("Arial", 10),
+      m_titleFont("Arial", 5),
       m_fileNameColor(Qt::black),
       m_fileNameFont("Arial", 12, QFont::Bold),
       m_fileSizeColor(QColor("#666666")),
@@ -36,60 +36,97 @@ void InfoCard::setupUI()
     
     // **FIX: عرض و ارتفاع ثابت برای تمام فایل‌ها**
     setFixedWidth(280);  // عرض ثابت 280 پیکسل
-    setFixedHeight(123); // ارتفاع ثابت 123 پیکسل (بزرگترین حالت)
+    setFixedHeight(88); // ارتفاع ثابت 88 پیکسل (هم‌اندازه با VoiceMessageWidget)
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     // Create main layout (QVBoxLayout)
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(10, 10, 10, 10);
-    m_mainLayout->setSpacing(8);
+    m_mainLayout->setContentsMargins(10, 6, 10, 6); // Reduced margins to prevent clipping
+    m_mainLayout->setSpacing(2); // Reduced spacing
+    m_mainLayout->setAlignment(Qt::AlignVCenter);
 
     // Title label at the top
     m_titleLabel = new QLabel("User #2");
     m_titleLabel->setObjectName("titleLabel");
-    m_mainLayout->addWidget(m_titleLabel);
+    m_titleLabel->setVisible(false); // Hidden as requested
+    // m_mainLayout->addWidget(m_titleLabel);
 
     // Middle layout (QHBoxLayout)
     m_middleLayout = new QHBoxLayout();
-    m_middleLayout->setSpacing(10);
+    m_middleLayout->setSpacing(8);
+    m_middleLayout->setContentsMargins(0, 0, 0, 0);
 
-    // File info layout (QVBoxLayout) on the left
+    // Icon label on the left
+    m_iconLabel = new QLabel();
+    m_iconLabel->setObjectName("iconLabel");
+    m_iconLabel->setFixedSize(28, 28); // Reduced icon size
+    m_iconLabel->setAlignment(Qt::AlignCenter);
+    m_middleLayout->addWidget(m_iconLabel);
+
+    // File info layout (QVBoxLayout)
     m_fileInfoLayout = new QVBoxLayout();
-    m_fileInfoLayout->setSpacing(2);
+    m_fileInfoLayout->setSpacing(0); // Tight spacing between name and size
+    m_fileInfoLayout->setContentsMargins(0, 0, 0, 0);
+    m_fileInfoLayout->setAlignment(Qt::AlignVCenter);
 
     m_fileNameLabel = new QLabel("tusd.exe");
     m_fileNameLabel->setObjectName("fileNameLabel");
+    // Set a smaller font size for the file name label
+    QFont fileNameFont = m_fileNameLabel->font();
+    fileNameFont.setPointSize(12);
+    m_fileNameLabel->setFont(fileNameFont);
     // **FIX 2: Ellipsis برای نام‌های طولانی**
     m_fileNameLabel->setWordWrap(false);
-    m_fileNameLabel->setMaximumWidth(200);
+    m_fileNameLabel->setMaximumWidth(190); // Slightly reduced to prevent overlap with icon
     QFontMetrics metrics(m_fileNameLabel->font());
     m_fileNameLabel->setText(metrics.elidedText(m_fileNameLabel->text(), Qt::ElideMiddle, 200));
     m_fileInfoLayout->addWidget(m_fileNameLabel);
 
+    // Create a horizontal layout for file size and timestamp
+    QHBoxLayout *bottomInfoLayout = new QHBoxLayout();
+    bottomInfoLayout->setContentsMargins(0, 0, 0, 0);
+    bottomInfoLayout->setSpacing(4);
+
     m_fileSizeLabel = new QLabel("57.4 MB");
     m_fileSizeLabel->setObjectName("fileSizeLabel");
-    m_fileInfoLayout->addWidget(m_fileSizeLabel);
+    QFont fileSizeFont = m_fileSizeLabel->font();
+    fileSizeFont.setPointSize(8); // Reduced to 8
+    m_fileSizeLabel->setFont(fileSizeFont);
+    bottomInfoLayout->addWidget(m_fileSizeLabel);
 
-    m_middleLayout->addLayout(m_fileInfoLayout);
+    bottomInfoLayout->addStretch();
 
-    // Add stretch to push file info to the left
-    m_middleLayout->addStretch();
+    // === Status Widget (Timestamp + Icon) ===
+    // Moved inside the file info layout to save space and remove the bottom bar
+    m_statusWidget = new QWidget(this);
+    m_statusWidget->setStyleSheet("background-color: transparent;"); // Ensure transparent background
+    QHBoxLayout *statusLayout = new QHBoxLayout(m_statusWidget);
+    statusLayout->setContentsMargins(0, 0, 0, 0);
+    statusLayout->setSpacing(4);
+    
+    m_timestampLabel = new QLabel("");
+    m_timestampLabel->setStyleSheet("color: #999; font-size: 8pt; background-color: transparent;");
+    statusLayout->addWidget(m_timestampLabel);
+    
+    m_statusIconLabel = new QLabel("✓");
+    m_statusIconLabel->setStyleSheet("color: #1f6bff; font-size: 9pt; font-weight: bold; background-color: transparent;");
+    statusLayout->addWidget(m_statusIconLabel);
+    
+    m_statusWidget->setVisible(false);
+    bottomInfoLayout->addWidget(m_statusWidget);
 
-    // Icon label on the right
-    m_iconLabel = new QLabel();
-    m_iconLabel->setObjectName("iconLabel");
-    m_iconLabel->setFixedSize(40, 40);
-    m_iconLabel->setAlignment(Qt::AlignCenter);
-    m_middleLayout->addWidget(m_iconLabel);
+    m_fileInfoLayout->addLayout(bottomInfoLayout);
+
+    m_middleLayout->addLayout(m_fileInfoLayout, 1); // Give stretch factor to file info layout
 
     m_mainLayout->addLayout(m_middleLayout);
 
     // === Progress Widget (for In-Progress state) ===
     // **FIX: نوار پیشرفت جداگانه AFTER middleLayout**
     m_progressWidget = new QWidget(this);
-    m_progressWidget->setFixedHeight(50); // ارتفاع ثابت
+    m_progressWidget->setFixedHeight(30); // ارتفاع کمتر برای نوار پیشرفت
     QVBoxLayout *progressLayout = new QVBoxLayout(m_progressWidget);
-    progressLayout->setContentsMargins(0, 5, 0, 0);
+    progressLayout->setContentsMargins(0, 0, 0, 0);
     progressLayout->setSpacing(4);
     
     // Progress bar
@@ -139,26 +176,6 @@ void InfoCard::setupUI()
     m_progressLabel->setText("45%");
     m_mainLayout->addWidget(m_progressWidget);
 
-    // === 3. Status Widget (for Completed state) ===
-    m_statusWidget = new QWidget(this);
-    m_statusWidget->setFixedHeight(30); // ارتفاع ثابت
-    QHBoxLayout *statusLayout = new QHBoxLayout(m_statusWidget);
-    statusLayout->setContentsMargins(0, 5, 0, 0); // همون margin با progressWidget
-    statusLayout->setSpacing(4);
-    
-    statusLayout->addStretch();
-    
-    m_timestampLabel = new QLabel("");
-    m_timestampLabel->setStyleSheet("color: #999; font-size: 10pt;");
-    statusLayout->addWidget(m_timestampLabel);
-    
-    m_statusIconLabel = new QLabel("✓");
-    m_statusIconLabel->setStyleSheet("color: #1f6bff; font-size: 12pt; font-weight: bold;");
-    statusLayout->addWidget(m_statusIconLabel);
-    
-    m_statusWidget->setVisible(false);
-    m_mainLayout->addWidget(m_statusWidget);
-
     // Set default styling
     setFrameStyle(QFrame::NoFrame);
     setLineWidth(1);
@@ -194,9 +211,15 @@ void InfoCard::updateStyles()
     if (m_fileNameFont.bold()) fileNameStyle += " font-weight: bold;";
     m_fileNameLabel->setStyleSheet(fileNameStyle);
     
+    // Ensure text color is applied via Palette as well for better compatibility
+    QPalette fileNamePalette = m_fileNameLabel->palette();
+    fileNamePalette.setColor(QPalette::WindowText, m_fileNameColor);
+    fileNamePalette.setColor(QPalette::Text, m_fileNameColor);
+    m_fileNameLabel->setPalette(fileNamePalette);
+    
     // Apply file size style
     m_fileSizeLabel->setStyleSheet(QString("background-color: transparent; color: %1;").arg(m_fileSizeColor.name()));
-    m_timestampLabel->setStyleSheet(QString("color: %1; font-size: 10pt;").arg(m_timestampColor.name()));
+    m_timestampLabel->setStyleSheet(QString("color: %1; font-size: 8pt;").arg(m_timestampColor.name()));
 }
 
 InfoCard* InfoCard::setTitle(const QString &title)
@@ -223,7 +246,7 @@ InfoCard* InfoCard::setFileSize(const QString &fileSize)
 
 InfoCard* InfoCard::setIcon(const QPixmap &pixmap)
 {
-    m_iconLabel->setPixmap(pixmap.scaled(40, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    m_iconLabel->setPixmap(pixmap.scaled(28, 28, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     return this;
 }
 
@@ -268,6 +291,15 @@ InfoCard* InfoCard::setFileNameFont(const QFont &font)
 {
     m_fileNameFont = font;
     updateStyles();
+    
+    // Re-elide text with new font to ensure it fits and is visible
+    QString fullText = m_fileNameLabel->toolTip();
+    if (!fullText.isEmpty()) {
+        QFontMetrics metrics(m_fileNameFont);
+        QString elidedText = metrics.elidedText(fullText, Qt::ElideMiddle, 190);
+        m_fileNameLabel->setText(elidedText);
+    }
+    
     return this;
 }
 
@@ -332,14 +364,14 @@ void InfoCard::setState(State newState)
         case State::Idle_Downloadable:
             // نمایش تایم‌استمپ برای فایل‌های دریافت شده که هنوز دانلود نشده‌اند
             m_statusIconLabel->setText("⬇");
-            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt;")
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 9pt;")
                                              .arg(m_isOutgoing ? "#8a94a6" : "#e7f1ff"));
             m_statusWidget->setVisible(true);
             break;
         
         case State::In_Progress_Upload:
             m_statusIconLabel->setText("🕒");
-            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt;")
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 9pt;")
                                              .arg(m_isOutgoing ? "#8a94a6" : "#f5f7ff"));
             m_statusWidget->setVisible(true);
             m_progressWidget->setVisible(true);
@@ -352,28 +384,34 @@ void InfoCard::setState(State newState)
 
         case State::Completed_Sent:
             m_statusIconLabel->setText("✓");
-            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt; font-weight: bold;")
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 9pt; font-weight: bold;")
                                              .arg(m_isOutgoing ? "#1f6bff" : "#ffffff"));
             m_statusWidget->setVisible(true);
             break;
 
         case State::Completed_Pending:
             m_statusIconLabel->setText("🕒");
-            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt;")
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 9pt;")
                                              .arg(m_isOutgoing ? "#8a94a6" : "#f5f7ff"));
             m_statusWidget->setVisible(true);
             break;
 
         case State::Completed_Downloaded:
             m_statusIconLabel->setText("✓");
-            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 12pt; font-weight: bold;")
+            m_statusIconLabel->setStyleSheet(QString("color: %1; font-size: 9pt; font-weight: bold;")
                                              .arg(m_isOutgoing ? "#1f6bff" : "#ffffff"));
             m_statusWidget->setVisible(true);
             break;
     }
     
+    // Adjust height based on state
+    if (newState == State::In_Progress_Upload || newState == State::In_Progress_Download) {
+        setFixedHeight(125);
+    } else {
+        setFixedHeight(88);
+    }
     
-    qDebug() << "� [InfoCard] State:" << (int)newState << "| Size:" << size() << "| isOutgoing:" << m_isOutgoing;
+    qDebug() << " [InfoCard] State:" << (int)newState << "| Size:" << size() << "| isOutgoing:" << m_isOutgoing;
     
     updateGeometry();
     
@@ -381,6 +419,8 @@ void InfoCard::setState(State newState)
     if (parentWidget() && parentWidget()->layout()) {
         parentWidget()->layout()->activate();
     }
+    
+    emit sizeChanged();
 }
 
 void InfoCard::updateProgress(qint64 bytesReceived, qint64 bytesTotal)

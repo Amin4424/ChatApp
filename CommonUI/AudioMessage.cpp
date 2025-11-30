@@ -13,6 +13,8 @@
 #include <QLinearGradient>
 #include <QPixmap>
 #include <QEvent>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QEnterEvent>
 #endif
@@ -82,14 +84,14 @@ void AudioMessage::setupUI()
     connect(m_voiceWidget, &VoiceMessageWidget::sliderSeeked, this, &AudioMessage::onSliderSeeked);
 
     if (isOutgoing(m_direction)) {
-        // SWAPPED: Outgoing messages now go to LEFT
+        // Outgoing (your) voice messages align to LEFT
         mainLayout->addWidget(m_voiceWidget);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
         mainLayout->addStretch(1);
     } else {
-        // SWAPPED: Incoming messages now go to RIGHT
+        // Incoming voice messages align to RIGHT
         mainLayout->addStretch(1);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
@@ -395,9 +397,19 @@ void AudioMessage::showActionMenu()
         menuPos.setX(buttonRight.x() + spacing);
     }
 
-    const int y = bubbleTopLeft.y() + (m_voiceWidget->height() - menuSize.height()) / 2;
+    int y = bubbleTopLeft.y() + (m_voiceWidget->height() - menuSize.height()) / 2;
     menuPos.setY(y);
+    
+    // Fade in animation for menu
+    m_actionMenu->setWindowOpacity(0.0);
     m_actionMenu->popup(menuPos);
+    
+    QPropertyAnimation *a = new QPropertyAnimation(m_actionMenu, "windowOpacity");
+    a->setDuration(150);
+    a->setStartValue(0.0);
+    a->setEndValue(1.0);
+    a->setEasingCurve(QEasingCurve::OutQuad);
+    a->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 QIcon AudioMessage::deleteIcon(bool emphasizeGlobal) const
@@ -456,7 +468,23 @@ void AudioMessage::enterEvent(QEvent *event)
 #endif
 {
     if (m_moreButton) {
-        m_moreButton->show();
+        QGraphicsOpacityEffect *eff = qobject_cast<QGraphicsOpacityEffect*>(m_moreButton->graphicsEffect());
+        if (!eff) {
+            eff = new QGraphicsOpacityEffect(m_moreButton);
+            m_moreButton->setGraphicsEffect(eff);
+        }
+        
+        if (!m_moreButton->isVisible()) {
+            eff->setOpacity(0.0);
+            m_moreButton->show();
+        }
+
+        QPropertyAnimation *a = new QPropertyAnimation(eff, "opacity");
+        a->setDuration(150);
+        a->setStartValue(eff->opacity());
+        a->setEndValue(1.0);
+        a->setEasingCurve(QEasingCurve::OutQuad);
+        a->start(QAbstractAnimation::DeleteWhenStopped);
     }
     QWidget::enterEvent(event);
 }
@@ -464,7 +492,19 @@ void AudioMessage::enterEvent(QEvent *event)
 void AudioMessage::leaveEvent(QEvent *event)
 {
     if (m_moreButton && !m_menuVisible) {
-        m_moreButton->hide();
+        QGraphicsOpacityEffect *eff = qobject_cast<QGraphicsOpacityEffect*>(m_moreButton->graphicsEffect());
+        if (!eff) {
+            eff = new QGraphicsOpacityEffect(m_moreButton);
+            m_moreButton->setGraphicsEffect(eff);
+        }
+
+        QPropertyAnimation *a = new QPropertyAnimation(eff, "opacity");
+        a->setDuration(150);
+        a->setStartValue(eff->opacity());
+        a->setEndValue(0.0);
+        a->setEasingCurve(QEasingCurve::OutQuad);
+        connect(a, &QPropertyAnimation::finished, m_moreButton, &QToolButton::hide);
+        a->start(QAbstractAnimation::DeleteWhenStopped);
     }
     QWidget::leaveEvent(event);
 }

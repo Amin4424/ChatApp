@@ -11,6 +11,9 @@
 #include <QPainter>
 #include <QLinearGradient>
 #include <QDateTime>
+#include <QDebug>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QEnterEvent>
@@ -29,6 +32,7 @@ TextMessage::TextMessage(const QString &messageText,
     , m_editAction(nullptr)
     , m_deleteAction(nullptr)
     , m_messageText(messageText)
+    , m_isEdited(false) // Initialize m_isEdited
 {
     MessageComponent::withTimestamp(timestamp);
 
@@ -53,7 +57,7 @@ TextMessage &TextMessage::withSender(const QString &senderInfo)
 {
     MessageComponent::withSender(senderInfo);
     if (m_bubble) {
-        m_bubble->setSenderText(m_senderInfo);
+        m_bubble->setSenderText(QString());
     }
     return *this;
 }
@@ -92,7 +96,7 @@ void TextMessage::setupUI()
     }
 
     m_bubble = new MessageBubble(this);
-    m_bubble->setSenderText(m_senderInfo);
+    m_bubble->setSenderText(QString());
     if (m_timestamp.isEmpty()) {
         m_timestamp = QDateTime::currentDateTime().toString("hh:mm");
     }
@@ -102,6 +106,11 @@ void TextMessage::setupUI()
     m_bubble->setTimestamp(m_timestamp);
 
     m_bubble->setMessageStatus(MessageBubble::Status::Sent);
+    
+    // Apply edited state if needed
+    if (m_isEdited) {
+        m_bubble->setEdited(true);
+    }
 
     // Subtle shadow to lift the bubble from the canvas
     auto *shadow = new QGraphicsDropShadowEffect(this);
@@ -111,14 +120,14 @@ void TextMessage::setupUI()
     m_bubble->setGraphicsEffect(shadow);
 
     if (isOutgoing(m_direction)) {
-        // SWAPPED: Outgoing messages now go to LEFT
+        // Outgoing (your) messages align to LEFT
         mainLayout->addWidget(m_bubble);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
         }
         mainLayout->addStretch(1);
     } else {
-        // SWAPPED: Incoming messages now go to RIGHT
+        // Incoming messages align to RIGHT
         mainLayout->addStretch(1);
         if (m_moreButton) {
             mainLayout->addWidget(m_moreButton, 0, Qt::AlignTop);
@@ -138,31 +147,36 @@ void TextMessage::applyStyles()
     }
 
     if (isOutgoing(m_direction)) {
-        m_bubble->setBubbleBackgroundColor(QColor("#ffffff"))
-               ->setBubbleBorderColor(QColor("#dfe3eb"))
-               ->setBubbleBorderRadius(20)
-               ->setBubblePadding(20)
-               ->setSenderTextColor(QColor("#5d6470"))
-               ->setMessageTextColor(QColor("#11151c"));
-        m_bubble->setBubbleStyleSheet(
+        // Outgoing (your) messages: clean white bubble with strong contrast text
+        const QColor bubbleBg("#ffffff");
+        const QColor bubbleBorder("#dfe3eb");
+        const QColor senderColor("#555555");
+        const QColor messageColor("#111111");
+
+        m_bubble->setBubbleBackgroundColor(bubbleBg)
+               ->setBubbleBorderColor(bubbleBorder)
+               ->setBubbleBorderRadius(18)
+               ->setBubblePadding(14)
+               ->setSenderTextColor(senderColor)
+               ->setMessageTextColor(messageColor);
+        m_bubble->setBubbleStyleSheet(QString(
             "QFrame#messageBubbleFrame {"
-            "    background-color: #ffffff;"
-            "    border: 1px solid #dfe3eb;"
-            "    border-radius: 20px;"
-            "    box-shadow: 0px 2px 14px rgba(0,0,0,0.08);"
+            "    background-color: %1;"
+            "    border: 1px solid %2;"
+            "    border-radius: 18px;"
             "}"
-        );
+        ).arg(bubbleBg.name(), bubbleBorder.name()));
     } else {
-        m_bubble->setBubbleBorderRadius(20)
-               ->setBubblePadding(20)
+        m_bubble->setBubbleBorderRadius(18)
+               ->setBubblePadding(14)
                ->setSenderTextColor(QColor("#e9f3ff"))
                ->setMessageTextColor(QColor("#ffffff"));
-        m_bubble->setEditedStyle("QLabel { color: #ffffff; font-style: italic; }");
+        m_bubble->setEditedStyle("QLabel { background-color: transparent; color: #ffffff; font-weight: bold; }");
         m_bubble->setBubbleStyleSheet(
             "QFrame#messageBubbleFrame {"
             "    background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #7ec7ff, stop:1 #2e6bff);"
             "    border: none;"
-            "    border-radius: 20px;"
+            "    border-radius: 18px;"
             "}"
         );
     }
@@ -173,8 +187,15 @@ void TextMessage::applyStyles()
     m_bubble->setSenderFont(senderFont);
 
     QFont messageFont = m_bubble->messageLabel()->font();
-    messageFont.setPointSize(12);
+    messageFont.setPointSize(14);  // Larger font for better visibility
+    messageFont.setWeight(QFont::Normal);
     m_bubble->setMessageFont(messageFont);
+
+    // Force geometry update after style application
+    m_bubble->adjustSize();
+    m_bubble->updateGeometry();
+    adjustSize();
+    updateGeometry();
 }
 
 void TextMessage::markAsSent()
@@ -182,6 +203,11 @@ void TextMessage::markAsSent()
     qDebug() << "📤 [TextMessage] markAsSent() called";
     if (m_bubble) {
         m_bubble->setMessageStatus(MessageBubble::Status::Sent);
+        qDebug() << "   [TextMessage] Bubble visibility:" << m_bubble->isVisible() << " Size:" << m_bubble->size();
+        if (m_bubble->messageLabel()) {
+             qDebug() << "   [TextMessage] Message Label visibility:" << m_bubble->messageLabel()->isVisible() 
+                      << " Text:" << m_bubble->messageLabel()->text();
+        }
     }
 }
 
@@ -193,7 +219,9 @@ void TextMessage::updateMessageText(const QString &newText)
 
     m_messageText = newText;
     if (m_bubble) {
+        
         m_bubble->setMessageText(m_messageText);
+        
         if (m_bubble->messageLabel()) {
             m_bubble->messageLabel()->adjustSize();
         }
@@ -209,6 +237,9 @@ void TextMessage::markAsEdited(bool edited)
     m_isEdited = edited;
     if (m_bubble) {
         m_bubble->setEdited(edited);
+        // Force layout update to ensure size hint is correct
+        adjustSize();
+        updateGeometry();
     }
 }
 
@@ -284,7 +315,24 @@ void TextMessage::enterEvent(QEvent *event)
 #endif
 {
     if (m_moreButton) {
-        m_moreButton->show();
+        QGraphicsOpacityEffect *eff = qobject_cast<QGraphicsOpacityEffect*>(m_moreButton->graphicsEffect());
+        if (!eff) {
+            eff = new QGraphicsOpacityEffect(m_moreButton);
+            m_moreButton->setGraphicsEffect(eff);
+        }
+        
+        // If hidden, start from 0 opacity
+        if (!m_moreButton->isVisible()) {
+            eff->setOpacity(0.0);
+            m_moreButton->show();
+        }
+
+        QPropertyAnimation *a = new QPropertyAnimation(eff, "opacity");
+        a->setDuration(150);
+        a->setStartValue(eff->opacity());
+        a->setEndValue(1.0);
+        a->setEasingCurve(QEasingCurve::OutQuad);
+        a->start(QAbstractAnimation::DeleteWhenStopped);
     }
     QWidget::enterEvent(event);
 }
@@ -292,7 +340,19 @@ void TextMessage::enterEvent(QEvent *event)
 void TextMessage::leaveEvent(QEvent *event)
 {
     if (m_moreButton && !m_menuVisible) {
-        m_moreButton->hide();
+        QGraphicsOpacityEffect *eff = qobject_cast<QGraphicsOpacityEffect*>(m_moreButton->graphicsEffect());
+        if (!eff) {
+            eff = new QGraphicsOpacityEffect(m_moreButton);
+            m_moreButton->setGraphicsEffect(eff);
+        }
+
+        QPropertyAnimation *a = new QPropertyAnimation(eff, "opacity");
+        a->setDuration(150);
+        a->setStartValue(eff->opacity());
+        a->setEndValue(0.0);
+        a->setEasingCurve(QEasingCurve::OutQuad);
+        connect(a, &QPropertyAnimation::finished, m_moreButton, &QToolButton::hide);
+        a->start(QAbstractAnimation::DeleteWhenStopped);
     }
     QWidget::leaveEvent(event);
 }
@@ -336,7 +396,17 @@ void TextMessage::showActionMenu()
 
     int y = bubbleTopLeft.y() + (m_bubble->height() - menuSize.height()) / 2;
     menuPos.setY(y);
+    
+    // Fade in animation for menu
+    m_actionMenu->setWindowOpacity(0.0);
     m_actionMenu->popup(menuPos);
+    
+    QPropertyAnimation *a = new QPropertyAnimation(m_actionMenu, "windowOpacity");
+    a->setDuration(150);
+    a->setStartValue(0.0);
+    a->setEndValue(1.0);
+    a->setEasingCurve(QEasingCurve::OutQuad);
+    a->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void TextMessage::applyActionMenuStyle()

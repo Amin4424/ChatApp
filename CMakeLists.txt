@@ -108,6 +108,10 @@ add_library(CommonUI STATIC
     CommonUI/MessageComponent.h
     CommonUI/TextMessage.cpp
     CommonUI/TextMessage.h
+    CommonUI/UserCard.cpp
+    CommonUI/UserCard.h
+    CommonUI/ChatHeader.cpp
+    CommonUI/ChatHeader.h
 )
 
 target_include_directories(CommonUI PUBLIC
@@ -152,6 +156,7 @@ add_executable(ClientApp
     Client/Model/Network/WebSocketClient.h
     Client/Model/Core/DatabaseManager.cpp
     Client/Model/Core/DatabaseManager.h
+    Server/View/resources.qrc
 )
 
 target_include_directories(ClientApp PRIVATE
@@ -208,6 +213,7 @@ add_executable(ServerApp
     Server/View/ServerChatWindow.cpp
     Server/View/ServerChatWindow.h
     Server/View/ServerChatWindow.ui
+    Server/View/resources.qrc
     
     # Model - Network
     Server/Model/Network/WebSocketServer.cpp

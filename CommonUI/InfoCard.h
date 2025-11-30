@@ -61,6 +61,7 @@ signals:
     // Signal for card click (replaces buttonClicked)
     void cardClicked();
     void cancelClicked();
+    void sizeChanged(); // Signal when size changes (e.g. state change)
 
 public slots:
     // Slot to update progress

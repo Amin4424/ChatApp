@@ -60,6 +60,19 @@ ServerController::~ServerController()
 {
 }
 
+void ServerController::updateUserCard(const QString &userId, const QString &preview, const QString &timestamp, int unreadCount)
+{
+    // Update state
+    m_lastMessages[userId] = preview;
+    m_lastTimestamps[userId] = timestamp;
+    m_unreadCounts[userId] = unreadCount;
+
+    // Update View
+    if (m_serverView) {
+        m_serverView->updateUserCardInfo(userId, preview, timestamp, unreadCount);
+    }
+}
+
 QWidget* ServerController::createWidgetFromData(const MessageData &msgData)
 {
     QString serverHost = m_server ? m_server->getServerIpAddress() : "localhost";
@@ -206,6 +219,9 @@ void ServerController::displayNewMessages(const QString &message)
             if (m_db) {
                 chunkData.databaseId = m_db->saveMessage("Server", cleanUserId, chunk, QDateTime::currentDateTime(), false);
             }
+            
+            QString preview = "You: " + chunk;
+            updateUserCard(cleanUserId, preview, msgData.timestamp, 0);
         }
         
         QWidget* itemWidget = createWidgetFromData(chunkData);
@@ -247,6 +263,21 @@ void ServerController::onUserListChanged(const QStringList &users)
 {
     if (m_serverView) {
         m_serverView->updateUserList(users);
+        
+        // Restore state for each user
+        for (const QString &user : users) {
+            // Extract clean user ID (e.g. "User #1" from "User #1 - 127.0.0.1")
+            QString cleanUser = user.split(" - ").first().trimmed();
+            
+            QString preview = m_lastMessages.value(cleanUser, "Click to open chat");
+            QString time = m_lastTimestamps.value(cleanUser, "");
+            int unread = m_unreadCounts.value(cleanUser, 0);
+            
+            // If we have stored data, update the card
+            if (m_lastMessages.contains(cleanUser) || m_unreadCounts.contains(cleanUser)) {
+                 m_serverView->updateUserCardInfo(user, preview, time, unread);
+            }
+        }
     }
 }
 
@@ -269,6 +300,18 @@ void ServerController::onUserSelected(const QString &userId)
         m_isBroadcastMode = false;
         m_currentPrivateTargetUser = userId;
         m_currentFilteredUser = userId;
+        
+        // Reset unread count for this user
+        m_unreadCounts[userId] = 0;
+        
+        // Immediately update the user card to show 0 unread messages
+        QString preview = m_lastMessages.value(userId, "Click to open chat");
+        QString time = m_lastTimestamps.value(userId, "");
+        if (m_serverView) {
+            // Pass the userId directly - updateUserCardInfo now handles matching
+            m_serverView->updateUserCardInfo(userId, preview, time, 0);
+        }
+        
         loadHistoryForUser(userId);
     }
 }
@@ -345,16 +388,19 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
         return;
     }
     
+    QString previewText;
     if (type == "text") {
         msgData.isFileMessage = false;
         msgData.isVoiceMessage = false;
         msgData.text = obj["content"].toString();
+        previewText = msgData.text;
     } else if (type == "file") {
         msgData.isFileMessage = true;
         msgData.isVoiceMessage = false;
         msgData.fileInfo.fileName = obj["fileName"].toString();
         msgData.fileInfo.fileSize = obj["fileSize"].toInteger();
         msgData.fileInfo.fileUrl = obj["fileUrl"].toString();
+        previewText = "📎 File: " + msgData.fileInfo.fileName;
     } else if (type == "voice") {
         msgData.isVoiceMessage = true;
         msgData.isFileMessage = false;
@@ -380,7 +426,22 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
             const QUrl url(msgData.voiceInfo.url);
             msgData.fileInfo.fileName = url.fileName();
         }
+        previewText = "🎤 Voice Message";
     }
+    
+    // --- UPDATE UNREAD COUNT & USER CARD ---
+    // If we are NOT chatting with this user (and not in broadcast mode), increment unread
+    bool isChattingWithUser = (!m_isBroadcastMode && m_currentPrivateTargetUser == senderId);
+    
+    int unread = m_unreadCounts.value(senderId, 0);
+    if (!isChattingWithUser) {
+        unread++;
+    } else {
+        unread = 0;
+    }
+    
+    updateUserCard(senderId, previewText, msgData.timestamp, unread);
+    // ---------------------------------------
     
     QString cleanFilteredUser = m_currentFilteredUser.split(" - ").first().trimmed();
     bool shouldDisplay = m_isBroadcastMode || m_currentFilteredUser.isEmpty() || senderId == cleanFilteredUser;
@@ -524,6 +585,9 @@ void ServerController::onFileUploaded(const QString &fileName, const QString &ur
         if (m_db) {
             m_db->saveMessage("Server", cleanUserId, dbMessage, QDateTime::currentDateTime(), false);
         }
+        
+        QString preview = isVoice ? "🎤 Voice Message" : "📎 File: " + fileName;
+        updateUserCard(cleanUserId, preview, msgData.timestamp, 0);
     }
     
     // **FIX: Widget قبلاً در View ساخته شده - نباید دوباره بسازیم!**

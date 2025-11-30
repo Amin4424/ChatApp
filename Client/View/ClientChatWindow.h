@@ -6,6 +6,7 @@
 #include <QListWidgetItem>
 #include <QIcon>
 #include "TextMessage.h" // <-- *** ADD THIS INCLUDE ***
+#include "ChatHeader.h" // Added ChatHeader
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QMediaRecorder>
@@ -99,9 +100,12 @@ private:
     QIcon m_sendButtonDefaultIcon;
     QString m_sendButtonDefaultText;
     QIcon m_sendButtonEditIcon;
+    
+    ChatHeader *m_chatHeader; // Added ChatHeader
 
     void updateSendButtonForEditState();
     void applyModernTheme();
+    void setupInputArea(); // New method for UI redesign
 };
 
 #endif // CLIENTCHATWINDOW_H

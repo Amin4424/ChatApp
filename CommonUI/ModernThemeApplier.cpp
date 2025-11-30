@@ -206,7 +206,6 @@ void ModernThemeApplier::applyToSupportBanner(QPushButton *button)
 {
     if (!button) return;
 
-    button->setMinimumHeight(70);
     button->setStyleSheet(QString(
         "QPushButton {"
         "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 %1, stop:1 %2);"

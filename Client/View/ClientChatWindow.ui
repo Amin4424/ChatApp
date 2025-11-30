@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>ClientChatWindow</class>
- <widget class="QMainWindow" name="ChatWindow">
+ <widget class="QMainWindow" name="ClientChatWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -221,34 +221,7 @@ QWidget#centralwidget {
     border-bottom: 1px solid #E0E0E0;
 }</string>
          </property>
-         <layout class="QVBoxLayout" name="verticalLayout_2">
-          <item>
-           <widget class="QLabel" name="chatTitleLabel">
-            <property name="styleSheet">
-             <string notr="true">font-size: 14pt; font-weight: bold; padding: 0px; color: #2C2C2C;</string>
-            </property>
-            <property name="text">
-             <string>Chat with Server</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignmentFlag::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="chatSubtitleLabel">
-            <property name="styleSheet">
-             <string notr="true">font-size: 10pt; padding: 2px; color: #666666;</string>
-            </property>
-            <property name="text">
-             <string>Connected to Server</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignmentFlag::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <layout class="QVBoxLayout" name="verticalLayout_2"/>
         </widget>
        </item>
        <item>
@@ -365,8 +338,8 @@ QTextEdit:focus {
             </property>
            </widget>
           </item>
-      <item>
-       <widget class="QPushButton" name="sendFileBtn">
+          <item>
+           <widget class="QPushButton" name="sendFileBtn">
             <property name="minimumSize">
              <size>
               <width>60</width>
@@ -387,33 +360,33 @@ QTextEdit:focus {
             </property>
            </widget>
           </item>
-      <item>
-       <widget class="QPushButton" name="recordVoiceBtn">
-        <property name="minimumSize">
-         <size>
-          <width>80</width>
-          <height>60</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>80</width>
-          <height>60</height>
-         </size>
-        </property>
-        <property name="toolTip">
-         <string>Record a voice message</string>
-        </property>
-        <property name="styleSheet">
-         <string notr="true"/>
-        </property>
-        <property name="text">
-         <string>Rec</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="sendMessageBtn">
+          <item>
+           <widget class="QPushButton" name="recordVoiceBtn">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>60</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>80</width>
+              <height>60</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Record a voice message</string>
+            </property>
+            <property name="styleSheet">
+             <string notr="true"/>
+            </property>
+            <property name="text">
+             <string>Rec</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="sendMessageBtn">
             <property name="minimumSize">
              <size>
               <width>80</width>

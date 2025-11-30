@@ -6,6 +6,7 @@
 #include <QProgressBar>
 #include <QIcon>
 #include "MessageAliases.h"
+#include "ChatHeader.h" // Added ChatHeader
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QMediaRecorder>
@@ -75,6 +76,8 @@ public:
     void onBroadcastModeClicked();
     void updateServerInfo(const QString &ip, int port, const QString &status);
     void clearChatHistory();
+    void updateUserListSelection();
+    void updateUserCardInfo(const QString &username, const QString &lastMessage, const QString &time, int unreadCount);
 
 private:
     Ui::ServerChatWindow *ui;
@@ -107,8 +110,11 @@ private:
     QString m_sendButtonDefaultText;
     QIcon m_sendButtonEditIcon;
 
+    ChatHeader *m_chatHeader; // Added ChatHeader
+
     void updateSendButtonForEditState();
     void applyModernTheme();
+    void setupInputArea(); // Add this line
 };
 
 #endif // SERVERCHATWINDOW_H

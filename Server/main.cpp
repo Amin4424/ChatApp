@@ -16,7 +16,10 @@ int main(int argc, char *argv[])
     // Initialize server components
     WebSocketServer *wsServer = new WebSocketServer(8080);  // Pass port to constructor
     TusServer *tusServer = new TusServer();
-    DatabaseManager *db = new DatabaseManager("server_chat.db");  // Pass database path
+    
+    // Use absolute path for database to ensure consistency
+    QString dbPath = QCoreApplication::applicationDirPath() + "/server_chat.db";
+    DatabaseManager *db = new DatabaseManager(dbPath);  // Pass database path
     
     // Initialize database
     if (!db->initDatabase()) {

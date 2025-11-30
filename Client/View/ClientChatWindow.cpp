@@ -60,6 +60,18 @@ ClientChatWindow::ClientChatWindow(QWidget *parent)
     , m_isRecording(false)
 {
     ui->setupUi(this);
+
+    // --- Add Chat Header ---
+    // Hide existing header from UI file if it exists
+    if (ui->chatHeader) {
+        ui->chatHeader->hide();
+    }
+
+    m_chatHeader = new ChatHeader(this);
+    // Insert at top of chat section (verticalLayout is the layout of chatSection)
+    ui->verticalLayout->insertWidget(0, m_chatHeader);
+    
+    setupInputArea(); // <-- Call the new setup method
     m_recordButtonDefaultStyle = ui->recordVoiceBtn->styleSheet();
     m_sendButtonDefaultIcon = ui->sendMessageBtn->icon();
     m_sendButtonDefaultText = ui->sendMessageBtn->text();
@@ -112,6 +124,21 @@ ClientChatWindow::ClientChatWindow(QWidget *parent)
     
     // Apply Modern Theme
     applyModernTheme();
+    
+    // Re-apply custom send button style after theme application
+    ui->sendMessageBtn->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #007aff;"
+        "    color: white;"
+        "    border: none;"
+        "    border-radius: 20px;"
+        "    font-weight: bold;"
+        "    font-size: 14px;"  // Changed from 14px to 16px as example
+        "}"
+        "QPushButton:hover { background-color: #0062cc; }"
+        "QPushButton:pressed { background-color: #004999; }"
+        "QPushButton:disabled { background-color: #b3d7ff; }"
+    );
 }
 
 void ClientChatWindow::applyModernTheme()
@@ -123,11 +150,11 @@ void ClientChatWindow::applyModernTheme()
     
     // Apply to main components
     ModernThemeApplier::applyToPrimaryButton(ui->sendMessageBtn);
-    ModernThemeApplier::applyToIconButton(ui->sendFileBtn);
-    if (ui->recordVoiceBtn) {
-        ModernThemeApplier::applyToIconButton(ui->recordVoiceBtn);
-    }
-    ModernThemeApplier::applyToTextInput(ui->typeMessageTxt);
+    // ModernThemeApplier::applyToIconButton(ui->sendFileBtn); // Disabled to preserve custom layout
+    // if (ui->recordVoiceBtn) {
+    //     ModernThemeApplier::applyToIconButton(ui->recordVoiceBtn); // Disabled to preserve custom layout
+    // }
+    // ModernThemeApplier::applyToTextInput(ui->typeMessageTxt); // Disabled to preserve custom layout
     ModernThemeApplier::applyToChatArea(ui->chatHistoryWdgt);
     
     // Apply to reconnect button as secondary button with new text
@@ -163,21 +190,13 @@ bool ClientChatWindow::eventFilter(QObject *obj, QEvent *event)
 
 void ClientChatWindow::updateInputModeButtons()
 {
-    if (m_isRecording) {
-        ui->recordVoiceBtn->setVisible(true);
-        ui->sendMessageBtn->setVisible(false);
-        return;
-    }
-
-    if (m_editingMessageItem) {
-        ui->sendMessageBtn->setVisible(true);
-        ui->recordVoiceBtn->setVisible(false);
-        return;
-    }
-
+    // Always show both buttons side by side, disable send if no text
     const bool hasText = !ui->typeMessageTxt->toPlainText().trimmed().isEmpty();
-    ui->sendMessageBtn->setVisible(hasText);
-    ui->recordVoiceBtn->setVisible(!hasText);
+    ui->sendMessageBtn->setVisible(true);
+    ui->sendMessageBtn->setEnabled(hasText || m_editingMessageItem); // allow send in edit mode
+    ui->recordVoiceBtn->setVisible(true);
+    // Enable record button even during recording so we can stop it
+    ui->recordVoiceBtn->setEnabled(true);
 }
 
 void ClientChatWindow::onsendMessageBtnclicked()
@@ -227,8 +246,8 @@ void ClientChatWindow::onchatHistoryWdgtitemClicked(QListWidgetItem *item)
 
 void ClientChatWindow::updateConnectionInfo(const QString &serverUrl, const QString &status)
 {
-    QString infoText = QString("Connection Status: %1").arg(status);
-    ui->clientConnectionLabel->setText(infoText);
+    // QString infoText = QString("Connection Status: %1").arg(status);
+    // ui->clientConnectionLabel->setText(infoText);
 }
 
 void ClientChatWindow::onReconnectClicked()
@@ -430,8 +449,10 @@ bool ClientChatWindow::startVoiceRecording()
 #endif
 
     m_isRecording = true;
-    ui->recordVoiceBtn->setText(tr("Stop"));
-    ui->recordVoiceBtn->setStyleSheet("QPushButton { background-color: #d93025; color: white; border: none; border-radius: 8px; font-size: 13pt; font-weight: bold; }");
+    ui->recordVoiceBtn->setIcon(QIcon("assets/recording.svg")); // Use recording icon
+    ui->recordVoiceBtn->setIconSize(QSize(24, 24));
+    ui->recordVoiceBtn->setText(""); // Clear text
+    ui->recordVoiceBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: #ff3b30; } QPushButton:hover { color: #d93025; }");
     updateInputModeButtons();
     return true;
 }
@@ -454,8 +475,9 @@ void ClientChatWindow::stopVoiceRecording(bool notifyUser)
 #endif
 
     m_isRecording = false;
-    ui->recordVoiceBtn->setText(tr("Rec"));
-    ui->recordVoiceBtn->setStyleSheet(m_recordButtonDefaultStyle);
+    ui->recordVoiceBtn->setText(""); // Clear text
+    ui->recordVoiceBtn->setIcon(QIcon("assets/mic.svg")); // Restore icon
+    ui->recordVoiceBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: black; }");
     updateInputModeButtons();
 }
 
@@ -568,6 +590,13 @@ void ClientChatWindow::addMessageItem(QWidget *messageItem)
     ui->chatHistoryWdgt->addItem(item);
     ui->chatHistoryWdgt->setItemWidget(item, messageItem);
     ui->chatHistoryWdgt->scrollToBottom();
+
+    // Connect sizeChanged signal if it's a FileMessage
+    if (FileMessage *fileMsg = qobject_cast<FileMessage*>(messageItem)) {
+        connect(fileMsg, &FileMessage::sizeChanged, this, [this, messageItem]() {
+            refreshMessageItem(messageItem);
+        });
+    }
 }
 
 void ClientChatWindow::removeMessageItem(QWidget *messageItem)
@@ -820,4 +849,114 @@ void ClientChatWindow::refreshMessageItem(QWidget *messageItem)
     }
 
     messageItem->updateGeometry();
+}
+
+void ClientChatWindow::setupInputArea()
+{
+    // 1. Get the layout of inputSection
+    QWidget *inputSection = ui->inputSection;
+    // Clear existing layout
+    if (inputSection->layout()) {
+        QLayoutItem *item;
+        while ((item = inputSection->layout()->takeAt(0)) != nullptr) {
+            delete item;
+        }
+        delete inputSection->layout();
+    }
+
+    // 2. Create new main layout
+    QHBoxLayout *mainLayout = new QHBoxLayout(inputSection);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(10);
+
+    // 3. Create Smiley Button
+    QPushButton *smileyBtn = new QPushButton(inputSection);
+    smileyBtn->setText("☺"); 
+    smileyBtn->setFixedSize(40, 40);
+    smileyBtn->setFlat(true);
+    smileyBtn->setCursor(Qt::PointingHandCursor);
+    smileyBtn->setStyleSheet("QPushButton { border: none; font-size: 24px; color: #8e8e93; background: transparent; } QPushButton:hover { color: #007aff; }");
+    
+    // 4. Create Input Container (White rounded box)
+    QFrame *inputContainer = new QFrame(inputSection);
+    inputContainer->setObjectName("inputContainer");
+    inputContainer->setStyleSheet(
+        "QFrame#inputContainer {"
+        "    background-color: #ffffff;"
+        "    border: 1px solid #e5e5ea;"
+        "    border-radius: 20px;"
+        "}"
+    );
+    
+    QHBoxLayout *containerLayout = new QHBoxLayout(inputContainer);
+    containerLayout->setContentsMargins(15, 5, 10, 5);
+    containerLayout->setSpacing(5);
+
+    // 5. Configure Text Edit
+    ui->typeMessageTxt->setParent(inputContainer);
+    ui->typeMessageTxt->setStyleSheet(
+        "QTextEdit {"
+        "    background-color: transparent;"
+        "    border: none;"
+        "    color: #000000;"
+        "    font-size: 14px;"
+        "    padding-top: 12px;" // Add padding to center text vertically
+        "}"
+    );
+    ui->typeMessageTxt->setFixedHeight(50); // Increased height
+    ui->typeMessageTxt->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->typeMessageTxt->setPlaceholderText("Write message...");
+
+    // 6. Configure Attachment Button
+    ui->sendFileBtn->setParent(inputContainer);
+    // Use SVG icon
+    QIcon attachIcon("assets/attach.svg");
+    ui->sendFileBtn->setIcon(attachIcon);
+    ui->sendFileBtn->setIconSize(QSize(24, 24));
+    ui->sendFileBtn->setText(""); 
+    ui->sendFileBtn->setFixedSize(32, 32);
+    ui->sendFileBtn->setFlat(true);
+    ui->sendFileBtn->setCursor(Qt::PointingHandCursor);
+    ui->sendFileBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: black; }");
+
+    // 7. Configure Mic Button
+    ui->recordVoiceBtn->setParent(inputContainer);
+    // Use SVG icon
+    QIcon micIcon("assets/mic.svg");
+    ui->recordVoiceBtn->setIcon(micIcon);
+    ui->recordVoiceBtn->setIconSize(QSize(24, 24));
+    ui->recordVoiceBtn->setText("");
+    ui->recordVoiceBtn->setFixedSize(32, 32);
+    ui->recordVoiceBtn->setFlat(true);
+    ui->recordVoiceBtn->setCursor(Qt::PointingHandCursor);
+    ui->recordVoiceBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: black; }");
+
+    // 8. Configure Send Button
+    ui->sendMessageBtn->setParent(inputSection);
+    ui->sendMessageBtn->setText("Send");
+    ui->sendMessageBtn->setFixedSize(80, 40);
+    ui->sendMessageBtn->setCursor(Qt::PointingHandCursor);
+    ui->sendMessageBtn->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #007aff;"
+        "    color: white;"
+        "    border: none;"
+        "    border-radius: 20px;"
+        "    font-weight: bold;"
+        "    font-size: 14px;"
+        "}"
+        "QPushButton:hover { background-color: #0062cc; }"
+        "QPushButton:pressed { background-color: #004999; }"
+        "QPushButton:disabled { background-color: #b3d7ff; }"
+    );
+
+    // 9. Assemble
+    mainLayout->addWidget(smileyBtn);
+    
+    containerLayout->addWidget(ui->typeMessageTxt);
+    containerLayout->addWidget(ui->sendFileBtn);
+    containerLayout->addWidget(ui->recordVoiceBtn);
+    
+    mainLayout->addWidget(inputContainer);
+    mainLayout->addWidget(ui->sendMessageBtn);
 }

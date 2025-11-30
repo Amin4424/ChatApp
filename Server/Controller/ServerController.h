@@ -5,6 +5,7 @@
 #include <QString>
 #include <QStringList>
 #include <QWidget>
+#include <QMap>
 
 class ServerChatWindow;
 class WebSocketServer;
@@ -54,6 +55,9 @@ private:
     void setupVoiceMessageItem(VoiceMessageItem *item);
     QStringList splitMessageIntoChunks(const QString &text) const;
     
+    // Helper to update user card and state
+    void updateUserCard(const QString &userId, const QString &preview, const QString &timestamp, int unreadCount);
+
     enum class DeleteRequestScope {
         Prompt,
         MeOnly,
@@ -72,6 +76,9 @@ private:
     QString m_currentPrivateTargetUser;
     QString m_currentFilteredUser;
     bool m_isBroadcastMode;
+    QMap<QString, int> m_unreadCounts; // Track unread messages per user
+    QMap<QString, QString> m_lastMessages; // Track last message preview per user
+    QMap<QString, QString> m_lastTimestamps; // Track last message timestamp per user
 };
 
 #endif // SERVERCONTROLLER_H
