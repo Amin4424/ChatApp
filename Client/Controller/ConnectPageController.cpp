@@ -5,7 +5,6 @@
 #include "Model/Network/WebSocketClient.h"
 #include "Model/Core/DatabaseManager.h"
 
-#include <QDebug>
 #include <QMessageBox>
 
 ConnectPageController::ConnectPageController(ConnectPage *connectPage, QObject *parent)
@@ -31,7 +30,6 @@ ConnectPageController::~ConnectPageController()
 
 void ConnectPageController::onConnectClient(const QString &ipAddress)
 {
-    qDebug() << "ConnectPageController: Connecting to server at" << ipAddress;
     
     m_serverUrl = ipAddress;
     
@@ -61,7 +59,6 @@ void ConnectPageController::onConnectClient(const QString &ipAddress)
     }
     
     QString wsUrl = QString("ws://%1:%2").arg(host).arg(port);
-    qDebug() << "ConnectPageController: Connecting to" << wsUrl;
     
     // Create client components
     m_chatWindow = new ClientChatWindow();
@@ -70,7 +67,6 @@ void ConnectPageController::onConnectClient(const QString &ipAddress)
     
     // Initialize database
     if (!m_db->initDatabase()) {
-        qDebug() << "Failed to initialize client database";
     }
     
     // Create controller
@@ -86,7 +82,6 @@ void ConnectPageController::onConnectClient(const QString &ipAddress)
 
 void ConnectPageController::onConnectionSuccess()
 {
-    qDebug() << "ConnectPageController: Connection successful";
     
     if (m_connectPage) {
         m_connectPage->hide();
@@ -100,7 +95,6 @@ void ConnectPageController::onConnectionSuccess()
 
 void ConnectPageController::onConnectionFailed(const QString &error)
 {
-    qDebug() << "ConnectPageController: Connection failed:" << error;
     
     QMessageBox::critical(m_connectPage, "Connection Error", 
         QString("Failed to connect to server: %1").arg(error));

@@ -1,5 +1,4 @@
 #include "TusDownloader.h"
-#include <QDebug>
 #include <QDir>
 #include <QStandardPaths>
 
@@ -28,11 +27,9 @@ TusDownloader::~TusDownloader()
 void TusDownloader::setDecryptionKey(const QByteArray &key)
 {
     if (key.size() != 32) {
-        qWarning() << "TusDownloader: Decryption key must be 32 bytes for AES-256";
         return;
     }
     m_decryptionKey = key;
-    qDebug() << "TusDownloader: Decryption key set";
 }
 
 void TusDownloader::startDownload(const QUrl &fileUrl, const QString &savePath, 
@@ -50,22 +47,16 @@ void TusDownloader::startDownload(const QUrl &fileUrl, const QString &savePath,
             emit error("Decryption requested but no encryption metadata provided");
             return;
         }
-
         m_chunkMetadata = CryptoManager::deserializeMetadata(encryptionMetadata);
         if (m_chunkMetadata.isEmpty()) {
             emit error("Failed to deserialize encryption metadata");
             return;
         }
-
         if (m_decryptionKey.size() != 32) {
             emit error("Decryption key not set or invalid");
             return;
         }
-
-        qDebug() << "TusDownloader: Starting download WITH DECRYPTION -" 
-                 << m_chunkMetadata.size() << "chunks";
     } else {
-        qDebug() << "TusDownloader: Starting download without decryption";
     }
 
     // Create directory if it doesn't exist
@@ -84,7 +75,6 @@ void TusDownloader::startDownload(const QUrl &fileUrl, const QString &savePath,
     // Set tus headers for resumable downloads (if supported)
     request.setRawHeader("Tus-Resumable", "1.0.0");
     
-    qDebug() << "TusDownloader: Starting download from" << fileUrl.toString() << "to" << savePath;
 
     m_reply = m_manager->get(request);
 
@@ -156,9 +146,6 @@ void TusDownloader::processDownloadedChunks()
         }
         m_file->flush();
 
-        qDebug() << "TusDownloader: Decrypted and wrote chunk" << m_currentChunkIndex
-                 << "- Encrypted size:" << metadata.encryptedSize
-                 << "Decrypted size:" << decryptedChunk.size();
 
         m_currentChunkIndex++;
     }
@@ -185,13 +172,10 @@ void TusDownloader::onDownloadFinished()
         // Verify all chunks were processed if decryption was enabled
         if (m_decryptionEnabled) {
             if (m_currentChunkIndex != m_chunkMetadata.size()) {
-                qWarning() << "TusDownloader: Warning - Not all chunks were processed."
-                          << "Processed:" << m_currentChunkIndex 
-                          << "Expected:" << m_chunkMetadata.size();
+                // Removed qWarning
             }
             if (!m_chunkBuffer.isEmpty()) {
-                qWarning() << "TusDownloader: Warning - Buffer not empty after download:"
-                          << m_chunkBuffer.size() << "bytes remaining";
+                // Removed qWarning
             }
         }
 
@@ -203,7 +187,6 @@ void TusDownloader::onDownloadFinished()
         ? QString("Download and decryption completed successfully (%1 chunks)").arg(m_currentChunkIndex)
         : "Download completed successfully";
     
-    qDebug() << "TusDownloader:" << completionMsg;
     emit finished(m_savePath);
 
     m_reply->deleteLater();
@@ -213,7 +196,6 @@ void TusDownloader::onDownloadFinished()
 void TusDownloader::onDownloadError(QNetworkReply::NetworkError code)
 {
     QString errorMsg = "Download failed: " + m_reply->errorString();
-    qDebug() << "TusDownloader:" << errorMsg;
 
     if (m_file && m_file->isOpen()) {
         m_file->close();

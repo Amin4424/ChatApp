@@ -39,7 +39,6 @@ bool DatabaseManager::initDatabase()
         return false;
     }
     
-    qDebug() << "Database opened successfully:" << m_dbPath;
     
     return createTables();
 }
@@ -68,7 +67,6 @@ bool DatabaseManager::createTables()
         return false;
     }
     
-    qDebug() << "Database tables created successfully";
     return true;
 }
 
@@ -121,7 +119,6 @@ int DatabaseManager::saveMessage(const QString &sender, const QString &receiver,
         return -1;
     }
     
-    qDebug() << "Message saved: From" << sender << "to" << receiver;
     return query.lastInsertId().toInt();
 }
 
@@ -153,7 +150,6 @@ QStringList DatabaseManager::loadAllMessages()
         messages.append(formattedMsg);
     }
     
-    qDebug() << "Loaded" << messages.size() << "messages from database";
     return messages;
 }
 
@@ -205,7 +201,6 @@ QStringList DatabaseManager::loadMessagesBetween(const QString &user1, const QSt
         messages.append(formattedMsg);
     }
     
-    qDebug() << "Loaded" << messages.size() << "messages between" << user1 << "and" << user2;
     return messages;
 }
 
@@ -218,7 +213,6 @@ bool DatabaseManager::clearAllMessages()
         return false;
     }
     
-    qDebug() << "All messages cleared from database";
     return true;
 }
 
@@ -236,7 +230,6 @@ bool DatabaseManager::updateMessage(int messageId, const QString &newMessage, bo
         return false;
     }
     
-    qDebug() << "Message" << messageId << "updated successfully";
     return true;
 }
 
@@ -252,6 +245,5 @@ bool DatabaseManager::deleteMessage(int messageId)
         return false;
     }
     
-    qDebug() << "Message" << messageId << "deleted successfully";
     return true;
 }

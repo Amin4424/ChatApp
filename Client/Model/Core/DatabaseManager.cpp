@@ -1,7 +1,6 @@
 #include "Model/Core/DatabaseManager.h"
 #include <QSqlQuery>
 #include <QSqlError>
-#include <QDebug>
 #include <QDir>
 #include <QFileInfo>
 
@@ -34,7 +33,6 @@ bool DatabaseManager::initDatabase()
     m_db.setDatabaseName(m_dbPath);
     
     if (!m_db.open()) {
-        qWarning() << "Failed to open database:" << m_db.lastError().text();
         return false;
     }
     
@@ -57,7 +55,6 @@ bool DatabaseManager::createTables()
     )";
     
     if (!query.exec(createTableQuery)) {
-        qWarning() << "Failed to create messages table:" << query.lastError().text();
         return false;
     }
     
@@ -71,7 +68,6 @@ bool DatabaseManager::ensureIsEditedColumn()
 {
     QSqlQuery pragmaQuery(m_db);
     if (!pragmaQuery.exec("PRAGMA table_info(messages)")) {
-        qWarning() << "Failed to inspect messages table:" << pragmaQuery.lastError().text();
         return false;
     }
     
@@ -86,7 +82,6 @@ bool DatabaseManager::ensureIsEditedColumn()
     if (!hasIsEdited) {
         QSqlQuery alterQuery(m_db);
         if (!alterQuery.exec("ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0")) {
-            qWarning() << "Failed to add is_edited column:" << alterQuery.lastError().text();
             return false;
         }
     }
@@ -112,7 +107,6 @@ int DatabaseManager::saveMessage(const QString &sender, const QString &receiver,
     query.bindValue(":is_edited", isEdited ? 1 : 0);
     
     if (!query.exec()) {
-        qWarning() << "Failed to save message:" << query.lastError().text();
         return -1;
     }
     return query.lastInsertId().toInt();

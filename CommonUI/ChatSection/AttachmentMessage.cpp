@@ -2,7 +2,6 @@
 #include "TusDownloader.h"
 
 #include <QCoreApplication>
-#include <QDebug>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -36,13 +35,11 @@ AttachmentMessage::~AttachmentMessage() = default;
 void AttachmentMessage::setFileUrl(const QString &fileUrl)
 {
     m_fileUrl = fileUrl;
-    qDebug() << "📝 [AttachmentMessage] File URL updated to:" << fileUrl;
 }
 
 void AttachmentMessage::startDownload()
 {
     if (m_fileUrl.isEmpty()) {
-        qDebug() << "📥 [AttachmentMessage] File URL is not available";
         return;
     }
 
@@ -54,14 +51,12 @@ void AttachmentMessage::startDownload()
     m_localFilePath = downloadDir + "/" + m_fileName;
 
     if (QFile::exists(m_localFilePath)) {
-        qDebug() << "📥 [AttachmentMessage] File exists, auto-overwriting:" << m_fileName;
         QFile::remove(m_localFilePath);
     }
 
     QString downloadUrlString = m_fileUrl;
 
     if (!downloadUrlString.startsWith("http://") && !downloadUrlString.startsWith("https://")) {
-        qDebug() << "📥 [AttachmentMessage] URL is relative, building full URL...";
 
         const QString host = m_serverHost.isEmpty() ? "localhost" : m_serverHost;
 
@@ -70,23 +65,19 @@ void AttachmentMessage::startDownload()
         }
 
         downloadUrlString = QString("http://%1:1080/%2").arg(host, downloadUrlString);
-        qDebug() << "📥 [AttachmentMessage] Built full URL:" << downloadUrlString;
     } else if (downloadUrlString.contains("localhost") && !m_serverHost.isEmpty() && m_serverHost != "localhost") {
         downloadUrlString.replace("localhost", m_serverHost);
-        qDebug() << "📥 [AttachmentMessage] Replaced localhost with:" << m_serverHost;
     }
 
     m_isDownloaded = false;
 
     setInProgressState(0, m_fileSize);
 
-    qDebug() << "📥 [AttachmentMessage] Starting download:" << downloadUrlString << "to" << m_localFilePath;
     m_tusDownloader->startDownload(QUrl(downloadUrlString), m_localFilePath);
 }
 
 void AttachmentMessage::onDownloadFinished(const QString &filePath)
 {
-    qDebug() << "📥 [AttachmentMessage] Download complete:" << m_fileName;
 
     m_isDownloaded = true;
     m_localFilePath = filePath;
@@ -96,7 +87,6 @@ void AttachmentMessage::onDownloadFinished(const QString &filePath)
 
 void AttachmentMessage::onDownloadError(const QString &errorMessage)
 {
-    qDebug() << "📥 [AttachmentMessage] Download error:" << errorMessage;
 
     m_isDownloaded = false;
     setIdleState();
@@ -107,15 +97,12 @@ void AttachmentMessage::openFile(const QString &customPath)
     const QString pathToOpen = customPath.isEmpty() ? m_localFilePath : customPath;
 
     if (pathToOpen.isEmpty() || !QFile::exists(pathToOpen)) {
-        qDebug() << "📥 [AttachmentMessage] Cannot open file - not found:" << pathToOpen;
         m_isDownloaded = false;
         setIdleState();
         return;
     }
 
-    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(pathToOpen))) {
-        qDebug() << "📥 [AttachmentMessage] Could not open file with default application";
-    }
+        QDesktopServices::openUrl(QUrl::fromLocalFile(pathToOpen));
 }
 
 QString AttachmentMessage::formatSize(qint64 bytes)

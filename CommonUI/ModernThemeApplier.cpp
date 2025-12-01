@@ -175,7 +175,7 @@ void ModernThemeApplier::applyToHeader(QWidget *header)
 void ModernThemeApplier::applyToListWidget(QListWidget *listWidget)
 {
     if (!listWidget) return;
-    
+
     listWidget->setStyleSheet(QString(
         "QListWidget {"
         "    background-color: %1;"

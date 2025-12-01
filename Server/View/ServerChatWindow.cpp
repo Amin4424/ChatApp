@@ -2,13 +2,15 @@
 #include "ui_ServerChatWindow.h"
 #include "ModernThemeApplier.h"
 #include "ModernTheme.h"
-#include "UserCard.h"
+#include "ChatStyles.h"
+#include "Components/UserCard.h"
 #include <QPushButton>
-#include <QDebug>
 #include <QPainter>
 #include <QKeyEvent>
+#include <QResizeEvent>
 #include <QRegularExpression>
 
+#include "../../CommonCore/NotificationManager.h"
 // --- ADD THESE INCLUDES ---
 #include <QFileDialog>
 #include <QMessageBox>
@@ -42,6 +44,7 @@
 #include "MessageAliases.h"
 #include "InfoCard.h"
 #include "ToastNotification.h"
+#include "EmptyMessageState.h"
 // ---
 
 ServerChatWindow::ServerChatWindow(QWidget *parent)
@@ -61,6 +64,21 @@ ServerChatWindow::ServerChatWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    // Initialize UserListManager
+    m_userListManager = new UserListManager(ui->userListWdgt, ui->userCountLabel, ui->sidebarStackedWidget, this);
+    connect(m_userListManager, &UserListManager::userSelected, this, [this](const QString &userId) {
+        emit userSelected(userId);
+        setPrivateChatMode(userId);
+        
+        // Show input section when a user is selected
+        if (ui->inputSection) {
+            ui->inputSection->setVisible(true);
+        }
+    });
+
+    // Setup NotificationManager with this window
+    NotificationManager::instance().setup(this);
+
     // --- Add Chat Header ---
     // Hide existing header if it exists
     if (ui->chatHeader) {
@@ -72,15 +90,22 @@ ServerChatWindow::ServerChatWindow(QWidget *parent)
     ui->verticalLayout->insertWidget(0, m_chatHeader);
     m_chatHeader->hide(); // Hide initially until a chat is selected
 
-    m_sendButtonDefaultIcon = ui->sendMessageBtn->icon();
-    m_sendButtonDefaultText = ui->sendMessageBtn->text();
+    // Create empty message state widget as child of chatHistoryWdgt's parent
+    m_emptyMessageState = new EmptyMessageState(ui->chatHistoryWdgt->parentWidget());
+    m_emptyMessageState->setGeometry(ui->chatHistoryWdgt->geometry());
+    m_emptyMessageState->raise(); // Bring to front
+    m_emptyMessageState->hide(); // Hide initially
+    updateEmptyStateVisibility();
+
+    setupInputArea(); // Initialize ChatInputWidget
+
+    m_sendButtonDefaultIcon = m_chatInput->sendButton()->icon();
+    m_sendButtonDefaultText = m_chatInput->sendButton()->text();
     m_sendButtonEditIcon = style()->standardIcon(QStyle::SP_DialogApplyButton);
     
-    // Check if recordVoiceBtn exists in UI
-    if (ui->recordVoiceBtn) {
-        m_recordButtonDefaultStyle = ui->recordVoiceBtn->styleSheet();
-        connect(ui->recordVoiceBtn, &QPushButton::clicked,
-                this, &ServerChatWindow::onRecordVoiceButtonClicked);
+    // Record button style
+    if (m_chatInput->micButton()) {
+        m_recordButtonDefaultStyle = m_chatInput->micButton()->styleSheet();
     }
     
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -95,26 +120,10 @@ ServerChatWindow::ServerChatWindow(QWidget *parent)
 #endif
     
     ui->chatHistoryWdgt->setResizeMode(QListView::Adjust);
-    // Connect send button click to slot
-    connect(ui->sendMessageBtn, &QPushButton::clicked,
-            this, &ServerChatWindow::onsendMessageBtnclicked);
-
-    // Connect user list click to slot
-    connect(ui->userListWdgt, &QListWidget::itemClicked,
-            this, &ServerChatWindow::onUserListItemClicked);
 
     // Connect restart button
     connect(ui->restartServerBtn, &QPushButton::clicked,
             this, &ServerChatWindow::onRestartServerClicked);
-
-    // --- ADD THIS CONNECTION ---
-    connect(ui->sendFileBtn, &QPushButton::clicked,
-            this, &ServerChatWindow::onSendFileClicked);
-
-    // Install event filter for Enter key
-    ui->typeMessageTxt->installEventFilter(this);
-    connect(ui->typeMessageTxt, &QTextEdit::textChanged,
-            this, &ServerChatWindow::updateInputModeButtons);
 
     // --- SETUP PROGRESS BAR ---
     m_uploadProgressBar = new QProgressBar(this);
@@ -122,7 +131,6 @@ ServerChatWindow::ServerChatWindow(QWidget *parent)
     m_uploadProgressBar->setRange(0, 1000); // We'll set max later
     m_uploadProgressBar->setValue(0);
     m_uploadProgressBar->setTextVisible(true);
-    // Add it to the status bar so it appears at the bottom
     ui->statusbar->addPermanentWidget(m_uploadProgressBar, 1);
     
     updateInputModeButtons();
@@ -142,9 +150,10 @@ ServerChatWindow::ServerChatWindow(QWidget *parent)
     ui->userListWdgt->setSpacing(8);
     ui->userListWdgt->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     // ui->userListWdgt->setFixedHeight(360); // Scrollable after ~3 items (3 * 112 + spacing)
-    
-    setupInputArea(); // Add this line
-    
+
+    // --- Apply Stylesheets (including Scrollbar) ---
+    ui->chatHistoryWdgt->setStyleSheet(ChatStyles::getChatHistoryStyle() + ChatStyles::getScrollBarStyle());
+
     // Hide input section initially
     if (ui->inputSection) {
         ui->inputSection->setVisible(false);
@@ -167,35 +176,11 @@ void ServerChatWindow::applyModernTheme()
         ModernThemeApplier::applyToHeader(ui->chatHeader);
     }
     
-    // Apply to main components
-    ModernThemeApplier::applyToPrimaryButton(ui->sendMessageBtn);
-    // ModernThemeApplier::applyToIconButton(ui->sendFileBtn); // Disabled to preserve custom layout
-    // if (ui->recordVoiceBtn) {
-    //     ModernThemeApplier::applyToIconButton(ui->recordVoiceBtn); // Disabled to preserve custom layout
-    // }
-    // ModernThemeApplier::applyToTextInput(ui->typeMessageTxt); // Disabled to preserve custom layout
-    
-    // Restore ListWidget style to remove default selection/hover effects
-    // This prevents "double background" issues since UserCard handles its own visual state
-    ui->userListWdgt->setStyleSheet(
-        "QListWidget {"
-        "    background-color: #ffffff;"
-        "    border: none;"
-        "    outline: none;"
-        "}"
-        "QListWidget::item {"
-        "    background-color: transparent;"
-        "    border: none;"
-        "    padding: 0px;"
-        "}"
-        "QListWidget::item:selected {"
-        "    background-color: transparent;"
-        "    border: none;"
-        "}"
-        "QListWidget::item:hover {"
-        "    background-color: transparent;"
-        "}"
-    );
+    // Note: ChatInputWidget has its own styling, don't override it
+
+    // Apply scrollable user list style (copied from constructor) so the sidebar
+    // uses the same custom scrollbar and item styling as the Server user list.
+    ui->userListWdgt->setStyleSheet(ChatStyles::getUserListStyle() + ChatStyles::getScrollBarStyle());
     
     ModernThemeApplier::applyToChatArea(ui->chatHistoryWdgt);
     
@@ -220,7 +205,7 @@ ServerChatWindow::~ServerChatWindow()
 
 bool ServerChatWindow::eventFilter(QObject *obj, QEvent *event)
 {
-    if (obj == ui->typeMessageTxt && event->type() == QEvent::KeyPress) {
+    if (m_chatInput && obj == m_chatInput->textEdit() && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
             // Check if Shift is NOT pressed (Shift+Enter = new line)
@@ -233,98 +218,35 @@ bool ServerChatWindow::eventFilter(QObject *obj, QEvent *event)
     return QMainWindow::eventFilter(obj, event);
 }
 
+void ServerChatWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    if (event->type() == QEvent::ActivationChange || event->type() == QEvent::WindowStateChange) {
+        if (this->isActiveWindow()) {
+            NotificationManager::instance().clearNotifications();
+        }
+    }
+}
+
 void ServerChatWindow::onsendMessageBtnclicked()
 {
-    qDebug() << "🔥 [ServerChatWindow] Send button clicked!";
-    
-    QString message = ui->typeMessageTxt->toPlainText().trimmed();
-    
-    qDebug() << "🔥 [ServerChatWindow] Message text:" << message;
-    
+    if (!m_chatInput) return;
+    QString message = m_chatInput->getMessageText().trimmed();
     if (message.isEmpty()) {
-        qDebug() << "⚠️ [ServerChatWindow] Message is empty - aborting";
         return;
     }
-
     if (m_editingMessageItem) {
         TextMessageItem *itemBeingEdited = m_editingMessageItem;
         emit messageEditConfirmed(itemBeingEdited, message);
         exitMessageEditMode();
         return;
     }
-    
-    qDebug() << "✅ [ServerChatWindow] Emitting sendMessageRequested signal";
     emit sendMessageRequested(message);
-    
-    qDebug() << "✅ [ServerChatWindow] Clearing input field";
     clearComposerText();
 }
 
 void ServerChatWindow::onchatHistoryWdgtitemClicked(QListWidgetItem *item)
 {
-    qDebug() << "You clicked on message:" << item->text();
-}
-
-void ServerChatWindow::onUserListItemClicked(QListWidgetItem *item)
-{
-    if (item) {
-        // Try to get ID from UserRole first (set by UserCard logic)
-        QString userId = item->data(Qt::UserRole).toString();
-        
-        // Fallback to text if UserRole is empty (legacy support)
-        if (userId.isEmpty()) {
-            userId = item->text();
-        }
-
-        // Check if it's the separator
-        if (userId.contains("──────")) {
-            // Do nothing for separator
-            return;
-        }
-        
-        // It's a specific user
-        // Remove the icon prefix if present
-        QString cleanUserId = userId;
-        if (cleanUserId.startsWith("👤 ")) {
-            cleanUserId = cleanUserId.mid(2); // Remove "👤 "
-        }
-        emit userSelected(cleanUserId);
-        setPrivateChatMode(cleanUserId);
-        
-        // Show input section when a user is selected
-        if (ui->inputSection) {
-            ui->inputSection->setVisible(true);
-        }
-        
-        // Clear unread count for the selected user
-        QWidget *widget = ui->userListWdgt->itemWidget(item);
-        if (UserCard *card = qobject_cast<UserCard*>(widget)) {
-            card->setUnreadCount(0);
-        }
-        
-        // Update visual selection of cards
-        updateUserListSelection();
-    }
-}
-
-void ServerChatWindow::updateUserListSelection()
-{
-    for (int i = 0; i < ui->userListWdgt->count(); ++i) {
-        QListWidgetItem *item = ui->userListWdgt->item(i);
-        QWidget *widget = ui->userListWdgt->itemWidget(item);
-        if (UserCard *card = qobject_cast<UserCard*>(widget)) {
-            QString userId = item->data(Qt::UserRole).toString();
-            bool isSelected = false;
-            
-            if (m_isPrivateChat) {
-                isSelected = (userId == m_currentTargetUser);
-            } else {
-                isSelected = (userId == "All Users");
-            }
-            
-            card->setSelected(isSelected);
-        }
-    }
 }
 
 void ServerChatWindow::onBroadcastModeClicked()
@@ -334,78 +256,15 @@ void ServerChatWindow::onBroadcastModeClicked()
 
 void ServerChatWindow::updateUserList(const QStringList &users)
 {
-    ui->userListWdgt->clear();
-
-    // Update count label
-    if (ui->userCountLabel) {
-        ui->userCountLabel->setText(QString("%1 User").arg(users.size()));
-    }
-
-    // Handle Empty State
-    if (users.isEmpty()) {
-        if (ui->sidebarStackedWidget) {
-            ui->sidebarStackedWidget->setCurrentIndex(1); // Show Empty State
-        }
-        return;
-    } else {
-        if (ui->sidebarStackedWidget) {
-            ui->sidebarStackedWidget->setCurrentIndex(0); // Show List
-        }
-    }
-
-    // 1. Broadcast Item (UserCard) - REMOVED
-
-    // 2. Individual Users
-    for (const QString &user : users) {
-        QListWidgetItem *item = new QListWidgetItem(ui->userListWdgt);
-        UserCard *card = new UserCard(ui->userListWdgt);
-        card->setName(user);
-        card->setMessage("Click to open chat"); // Placeholder
-        card->setTime(""); // Placeholder
-        
-        // Generate avatar from name initials
-        QPixmap userAvatar(48, 48);
-        // Generate a random-ish color based on name hash
-        int hash = qHash(user);
-        QColor bg = QColor::fromHsl(qAbs(hash) % 360, 200, 150); 
-        userAvatar.fill(bg);
-        QPainter p2(&userAvatar);
-        p2.setPen(Qt::white);
-        
-        QFont f = p2.font();
-        f.setPixelSize(24);
-        p2.setFont(f);
-        QString initials = user.left(1).toUpper();
-        if (user.contains(" ")) {
-            initials += user.split(" ").last().left(1).toUpper();
-        }
-        p2.drawText(userAvatar.rect(), Qt::AlignCenter, initials);
-        card->setAvatar(userAvatar);
-        
-        // Set selection state
-        bool isSelected = (m_isPrivateChat && m_currentTargetUser == user);
-        card->setSelected(isSelected);
-        
-        // Online status (assume online if in list)
-        card->setOnlineStatus(true);
-
-        // Set size hint explicitly with some padding to prevent overlap
-        item->setSizeHint(QSize(244, 112)); 
-        ui->userListWdgt->setItemWidget(item, card);
-        item->setData(Qt::UserRole, user);
-
-        connect(card, &UserCard::clicked, this, [this, item]() {
-            ui->userListWdgt->setCurrentItem(item);
-            onUserListItemClicked(item);
-        });
+    if (m_userListManager) {
+        m_userListManager->updateUsers(users);
     }
 }
 
 void ServerChatWindow::updateUserCount(int count)
 {
-    // Update the count label
-    if (ui->userCountLabel) {
-        ui->userCountLabel->setText(QString("%1 User").arg(count));
+    if (m_userListManager) {
+        m_userListManager->updateUserCount(count);
     }
 }
 
@@ -450,9 +309,13 @@ void ServerChatWindow::setPrivateChatMode(const QString &userId)
     }
     
     // Update user list selection
-    updateUserListSelection();
+    if (m_userListManager) {
+        m_userListManager->updateSelection(m_currentTargetUser, m_isPrivateChat);
+    }
+    
+    // Update empty state visibility
+    updateEmptyStateVisibility();
 
-    qDebug() << "Switched to private chat with:" << userId;
 }
 
 void ServerChatWindow::setBroadcastMode()
@@ -468,6 +331,16 @@ void ServerChatWindow::setBroadcastMode()
     if (m_chatHeader) {
         m_chatHeader->hide();
     }
+    
+    // Hide empty state in broadcast mode
+    if (m_emptyMessageState) {
+        m_emptyMessageState->hide();
+    }
+
+    // Hide input section
+    if (ui->inputSection) {
+        ui->inputSection->setVisible(false);
+    }
 
     // Keep the chatHeader white with modern theme
     QWidget *header = this->findChild<QWidget*>("chatHeader");
@@ -480,7 +353,6 @@ void ServerChatWindow::setBroadcastMode()
             );
     }
 
-    qDebug() << "Switched to broadcast mode";
 }
 
 void ServerChatWindow::updateServerInfo(const QString &ip, int port, const QString &status)
@@ -494,13 +366,13 @@ void ServerChatWindow::updateServerInfo(const QString &ip, int port, const QStri
 
 void ServerChatWindow::onRestartServerClicked()
 {
-    qDebug() << "Restart server button clicked";
     emit restartServerRequested();
 }
 
 void ServerChatWindow::clearChatHistory()
 {
     ui->chatHistoryWdgt->clear();
+    updateEmptyStateVisibility();
 }
 
 // --- ADD THIS ENTIRE NEW FUNCTION ---
@@ -542,27 +414,21 @@ void ServerChatWindow::onSendFileClicked()
     InfoCard* infoCard = fileItem->findChild<InfoCard*>();
     if (infoCard) {
         connect(uploader, &TusUploader::uploadProgress, infoCard, &InfoCard::updateProgress);
-        
         // **NEW: اتصال دکمه Cancel**
         connect(infoCard, &InfoCard::cancelClicked, this, [=]() {
-            qDebug() << "❌ Cancel clicked - canceling upload";
-            
             // Cancel upload safely
             if (uploader) {
                 uploader->cancelUpload();
                 uploader->deleteLater();
             }
-            
             // **FIX: حذف QListWidgetItem از لیست چت**
             for (int i = 0; i < ui->chatHistoryWdgt->count(); ++i) {
                 QListWidgetItem* item = ui->chatHistoryWdgt->item(i);
                 if (item && ui->chatHistoryWdgt->itemWidget(item) == fileItem) {
-                    qDebug() << "🗑️ Removing QListWidgetItem at index:" << i;
                     delete ui->chatHistoryWdgt->takeItem(i);
                     break;
                 }
             }
-            
             // Delete FileMessageItem
             fileItem->deleteLater();
         });
@@ -571,20 +437,15 @@ void ServerChatWindow::onSendFileClicked()
     // --- Connect signals from the uploader ---
 
     connect(uploader, &TusUploader::finished, this, [=](const QString &uploadUrl, qint64 uploadedSize) {
-        qDebug() << "🔵 [FILE UPLOAD] TusUploader finished - fileName:" << fileName;
-        
         // Update file item with actual URL
         if (fileItem) {
             fileItem->setFileUrl(uploadUrl);
         }
-        
         // **FIX: به جای ساخت FileMessageItem جدید، فقط state را تغییر بده**
         if (infoCard) {
             infoCard->setState(InfoCard::State::Completed_Sent);
         }
-        
         // Emit signal for saving to database and sending via WebSocket
-        qDebug() << "📤 [FILE UPLOAD] Emitting fileUploaded signal for file:" << fileName;
         emit fileUploaded(fileName, uploadUrl, uploadedSize, "localhost");
         uploader->deleteLater();
     });
@@ -595,9 +456,7 @@ void ServerChatWindow::onSendFileClicked()
         fileItem->deleteLater();
         uploader->deleteLater();
     });
-
     // --- Start the upload ---
-    qDebug() << "Starting upload of" << filePath;
     uploader->startUpload(filePath, tusEndpoint);
 }
 
@@ -615,6 +474,12 @@ void ServerChatWindow::addMessageItem(QWidget *messageItem)
 {
     if (!messageItem) return;
 
+    // If not in private chat (no user selected), do not show messages
+    if (!m_isPrivateChat) {
+        messageItem->deleteLater();
+        return;
+    }
+
     QListWidgetItem *item = new QListWidgetItem(ui->chatHistoryWdgt);
     item->setSizeHint(messageItem->sizeHint());
     ui->chatHistoryWdgt->addItem(item);
@@ -627,6 +492,9 @@ void ServerChatWindow::addMessageItem(QWidget *messageItem)
             refreshMessageItem(messageItem);
         });
     }
+    
+    // Update empty state visibility
+    updateEmptyStateVisibility();
 }
 
 void ServerChatWindow::removeMessageItem(QWidget *messageWidget)
@@ -645,63 +513,46 @@ void ServerChatWindow::removeMessageItem(QWidget *messageWidget)
             break;
         }
     }
+    
+    // Update empty state visibility
+    updateEmptyStateVisibility();
 }
 
 void ServerChatWindow::removeMessageByDatabaseId(int databaseId)
 {
-    qDebug() << "🔍 [SERVER removeMessageByDatabaseId] Looking for message ID:" << databaseId;
-    
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [SERVER removeMessageByDatabaseId] UI or chatHistoryWdgt is null";
         return;
     }
-
     QListWidget *list = ui->chatHistoryWdgt;
-    qDebug() << "🔍 [SERVER removeMessageByDatabaseId] Total messages in list:" << list->count();
-    
     for (int index = 0; index < list->count(); ++index) {
         QListWidgetItem *item = list->item(index);
         QWidget *widget = list->itemWidget(item);
-        
         int widgetDbId = -1;
-        QString widgetType = "Unknown";
-        
         // Try to cast to different message types
         if (TextMessageItem *textItem = qobject_cast<TextMessageItem*>(widget)) {
             widgetDbId = textItem->databaseId();
-            widgetType = "TextMessage";
         } else if (FileMessageItem *fileItem = qobject_cast<FileMessageItem*>(widget)) {
             widgetDbId = fileItem->databaseId();
-            widgetType = "FileMessage";
         } else if (VoiceMessageItem *audioItem = qobject_cast<VoiceMessageItem*>(widget)) {
             widgetDbId = audioItem->databaseId();
-            widgetType = "AudioMessage";
         }
-        
-        qDebug() << "🔍 [SERVER] Checking" << widgetType << "at index" << index << "with DB ID:" << widgetDbId;
-        
         if (widgetDbId == databaseId && widgetDbId >= 0) {
             QListWidgetItem *removed = list->takeItem(index);
             delete removed;
             widget->deleteLater();
-            qDebug() << "✅ [SERVER] Removed" << widgetType << "with DB ID:" << databaseId << "at index:" << index;
             return;
         }
     }
-    qDebug() << "❌ [SERVER removeMessageByDatabaseId] Message ID" << databaseId << "not found";
 }
 
 void ServerChatWindow::updateMessageByDatabaseId(int databaseId, const QString &newText)
 {
-    qDebug() << "🔍 [SERVER updateMessageByDatabaseId] Looking for message ID:" << databaseId << "New text:" << newText;
     
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [SERVER updateMessageByDatabaseId] UI or chatHistoryWdgt is null";
         return;
     }
 
     QListWidget *list = ui->chatHistoryWdgt;
-    qDebug() << "🔍 [SERVER updateMessageByDatabaseId] Total messages in list:" << list->count();
     
     for (int index = 0; index < list->count(); ++index) {
         QListWidgetItem *item = list->item(index);
@@ -709,25 +560,20 @@ void ServerChatWindow::updateMessageByDatabaseId(int databaseId, const QString &
         
         // Try to cast to TextMessageItem (only text messages can be edited)
         if (TextMessageItem *textItem = qobject_cast<TextMessageItem*>(widget)) {
-            qDebug() << "🔍 [SERVER] Checking TextMessage at index" << index << "with DB ID:" << textItem->databaseId();
             if (textItem->databaseId() == databaseId) {
                 textItem->updateMessageText(newText);
                 textItem->markAsEdited(true);
                 refreshMessageItem(textItem);
-                qDebug() << "✅ [SERVER] Updated message with DB ID:" << databaseId << "to:" << newText;
                 return;
             }
         }
     }
-    qDebug() << "❌ [SERVER updateMessageByDatabaseId] Message ID" << databaseId << "not found";
 }
 
 void ServerChatWindow::removeLastMessageFromSender(const QString &senderName)
 {
-    qDebug() << "🔍 [SERVER removeLastMessageFromSender] Looking for last message from:" << senderName;
     
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [SERVER removeLastMessageFromSender] UI or chatHistoryWdgt is null";
         return;
     }
 
@@ -744,20 +590,16 @@ void ServerChatWindow::removeLastMessageFromSender(const QString &senderName)
                 QListWidgetItem *removed = list->takeItem(index);
                 delete removed;
                 widget->deleteLater();
-                qDebug() << "✅ [SERVER] Removed last message from" << senderName << "at index" << index;
                 return;
             }
         }
     }
-    qDebug() << "❌ [SERVER removeLastMessageFromSender] No message found from" << senderName;
 }
 
 void ServerChatWindow::updateLastMessageFromSender(const QString &senderName, const QString &newText)
 {
-    qDebug() << "🔍 [SERVER updateLastMessageFromSender] Looking for last message from:" << senderName;
     
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [SERVER updateLastMessageFromSender] UI or chatHistoryWdgt is null";
         return;
     }
 
@@ -774,45 +616,46 @@ void ServerChatWindow::updateLastMessageFromSender(const QString &senderName, co
                 textItem->updateMessageText(newText);
                 textItem->markAsEdited(true);
                 refreshMessageItem(textItem);
-                qDebug() << "✅ [SERVER] Updated last message from" << senderName << "at index" << index << "to:" << newText;
                 return;
             }
         }
     }
-    qDebug() << "❌ [SERVER updateLastMessageFromSender] No message found from" << senderName;
 }
 
 void ServerChatWindow::setComposerText(const QString &text, bool focus)
 {
-    if (!ui || !ui->typeMessageTxt) {
+    if (!m_chatInput) {
         return;
     }
 
-    ui->typeMessageTxt->setPlainText(text);
+    QTextEdit* edit = m_chatInput->textEdit();
+    if (!edit) return;
+
+    edit->setPlainText(text);
     if (focus) {
-        ui->typeMessageTxt->setFocus();
-        QTextCursor cursor = ui->typeMessageTxt->textCursor();
+        edit->setFocus();
+        QTextCursor cursor = edit->textCursor();
         cursor.movePosition(QTextCursor::End);
-        ui->typeMessageTxt->setTextCursor(cursor);
+        edit->setTextCursor(cursor);
     }
     updateInputModeButtons();
 }
 
 QString ServerChatWindow::composerText() const
 {
-    if (!ui || !ui->typeMessageTxt) {
+    if (!m_chatInput) {
         return QString();
     }
-    return ui->typeMessageTxt->toPlainText();
+    return m_chatInput->getMessageText();
 }
 
 void ServerChatWindow::clearComposerText()
 {
-    if (!ui || !ui->typeMessageTxt) {
+    if (!m_chatInput) {
         return;
     }
 
-    ui->typeMessageTxt->clear();
+    m_chatInput->clearMessageText();
     updateInputModeButtons();
 }
 
@@ -837,21 +680,24 @@ void ServerChatWindow::exitMessageEditMode()
 
 void ServerChatWindow::updateSendButtonForEditState()
 {
-    if (!ui || !ui->sendMessageBtn) {
+    if (!m_chatInput) {
         return;
     }
+    
+    QPushButton* btn = m_chatInput->sendButton();
+    if (!btn) return;
 
     if (m_editingMessageItem) {
         if (m_sendButtonEditIcon.isNull()) {
             m_sendButtonEditIcon = style()->standardIcon(QStyle::SP_DialogApplyButton);
         }
-        ui->sendMessageBtn->setIcon(m_sendButtonEditIcon);
-        ui->sendMessageBtn->setText(QString());
-        ui->sendMessageBtn->setToolTip(tr("Update message"));
+        btn->setIcon(m_sendButtonEditIcon);
+        btn->setText(QString());
+        btn->setToolTip(tr("Update message"));
     } else {
-        ui->sendMessageBtn->setIcon(m_sendButtonDefaultIcon);
-        ui->sendMessageBtn->setText(m_sendButtonDefaultText);
-        ui->sendMessageBtn->setToolTip(QString());
+        btn->setIcon(m_sendButtonDefaultIcon);
+        btn->setText(m_sendButtonDefaultText);
+        btn->setToolTip(QString());
     }
 }
 
@@ -880,15 +726,24 @@ void ServerChatWindow::refreshMessageItem(QWidget *messageItem)
 
 void ServerChatWindow::updateInputModeButtons()
 {
-    if (!ui->recordVoiceBtn || !ui->sendMessageBtn) return;
+    if (!m_chatInput) return;
 
     // Always show both buttons side by side, disable send if no text
-    const bool hasText = !ui->typeMessageTxt->toPlainText().trimmed().isEmpty();
-    ui->sendMessageBtn->setVisible(true);
-    ui->sendMessageBtn->setEnabled(hasText || m_editingMessageItem); // allow send in edit mode
-    ui->recordVoiceBtn->setVisible(true);
-    // Enable record button even during recording so we can stop it
-    ui->recordVoiceBtn->setEnabled(true);
+    const bool hasText = !m_chatInput->getMessageText().trimmed().isEmpty();
+    
+    QPushButton* sendBtn = m_chatInput->sendButton();
+    QPushButton* micBtn = m_chatInput->micButton();
+    
+    if (sendBtn) {
+        sendBtn->setVisible(true);
+        sendBtn->setEnabled(hasText || m_editingMessageItem); // allow send in edit mode
+    }
+    
+    if (micBtn) {
+        micBtn->setVisible(true);
+        // Enable record button even during recording so we can stop it
+        micBtn->setEnabled(true);
+    }
 }
 
 void ServerChatWindow::onRecordVoiceButtonClicked()
@@ -971,13 +826,9 @@ bool ServerChatWindow::startVoiceRecording()
     m_mediaRecorder->setQuality(QMediaRecorder::HighQuality);
     m_mediaRecorder->setOutputLocation(QUrl::fromLocalFile(m_currentRecordingPath));
     
-    qDebug() << "[ServerChatWindow] About to start recording. Recorder state:" << m_mediaRecorder->recorderState() 
-             << "Error:" << m_mediaRecorder->error() << m_mediaRecorder->errorString();
     
     m_mediaRecorder->record();
     
-    qDebug() << "[ServerChatWindow] After record() called. Recorder state:" << m_mediaRecorder->recorderState() 
-             << "Error:" << m_mediaRecorder->error() << m_mediaRecorder->errorString();
 #else
     m_audioRecorder->setAudioInput(m_audioRecorder->defaultAudioInput());
     QAudioEncoderSettings audioSettings;
@@ -991,11 +842,12 @@ bool ServerChatWindow::startVoiceRecording()
 #endif
 
     m_isRecording = true;
-    if (ui->recordVoiceBtn) {
-        ui->recordVoiceBtn->setIcon(QIcon("assets/recording.svg")); // Use recording icon
-        ui->recordVoiceBtn->setIconSize(QSize(24, 24));
-        ui->recordVoiceBtn->setText(""); // Clear text
-        ui->recordVoiceBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: #ff3b30; } QPushButton:hover { color: #d93025; }");
+    if (m_chatInput && m_chatInput->micButton()) {
+        QPushButton* btn = m_chatInput->micButton();
+        btn->setIcon(QIcon("assets/recording.svg")); // Use recording icon
+        btn->setIconSize(QSize(24, 24));
+        btn->setText(""); // Clear text
+        btn->setStyleSheet("QPushButton { border: none; background: transparent; color: #ff3b30; } QPushButton:hover { color: #d93025; }");
     }
     updateInputModeButtons();
     return true;
@@ -1020,12 +872,13 @@ void ServerChatWindow::stopVoiceRecording(bool notifyUser)
 #endif
 
     m_isRecording = false;
-    if (ui->recordVoiceBtn) {
+    if (m_chatInput && m_chatInput->micButton()) {
+        QPushButton* btn = m_chatInput->micButton();
         QIcon micIcon("assets/mic.svg");
-        ui->recordVoiceBtn->setIcon(micIcon);
-        ui->recordVoiceBtn->setIconSize(QSize(24, 24));
-        ui->recordVoiceBtn->setText("");
-        ui->recordVoiceBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: black; }");
+        btn->setIcon(micIcon);
+        btn->setIconSize(QSize(24, 24));
+        btn->setText("");
+        btn->setStyleSheet("QPushButton { border: none; background: transparent; color: black; }");
     }
     updateInputModeButtons();
 }
@@ -1039,19 +892,16 @@ void ServerChatWindow::onRecorderStateChanged(QMediaRecorder::RecorderState stat
             QFileInfo fileInfo(m_currentRecordingPath);
             
             if (!fileInfo.exists() || fileInfo.size() == 0) {
-                qDebug() << "[VOICE] Recording failed - file not created or empty";
                 m_currentRecordingPath.clear();
                 return;
             }
             
-            qDebug() << "[VOICE] Recording saved:" << fileInfo.size() << "bytes - Generating waveform...";
             
             // Generate waveform from the recorded file BEFORE upload
             AudioWaveform *waveformGen = new AudioWaveform(this);
             QString recordingPath = m_currentRecordingPath; // Copy for lambda
             
             connect(waveformGen, &AudioWaveform::waveformReady, this, [this, fileInfo, recordingPath, waveformGen](const QVector<qreal> &waveform) {
-                qDebug() << "[VOICE] Waveform generated with" << waveform.size() << "samples - Starting upload...";
                 
                 // **NEW: ساخت VoiceMessageItem قبل از شروع آپلود**
                 VoiceMessageItem* voiceItem = new VoiceMessageItem(
@@ -1081,7 +931,6 @@ void ServerChatWindow::onRecorderStateChanged(QMediaRecorder::RecorderState stat
                 });
 
                 connect(uploader, &TusUploader::finished, this, [this, uploader, fileInfo, waveform, voiceItem](const QString &fileUrl, qint64 uploadedSize, const QByteArray &) {
-                    qDebug() << "🟢 [VOICE UPLOAD] TusUploader finished - fileName:" << fileInfo.fileName();
                     
                     // Update voice item with actual URL
                     if (voiceItem) {
@@ -1090,15 +939,12 @@ void ServerChatWindow::onRecorderStateChanged(QMediaRecorder::RecorderState stat
                     }
                     
                     // Emit with waveform data
-                    qDebug() << "📤 [VOICE UPLOAD] Emitting fileUploaded signal for voice:" << fileInfo.fileName();
                     emit fileUploaded(fileInfo.fileName(), fileUrl, fileInfo.size(), "localhost", waveform);
-                    qDebug() << "[VOICE] Upload successful:" << fileUrl << "with waveform size:" << waveform.size();
                     
                     uploader->deleteLater();
                 });
 
                 connect(uploader, &TusUploader::error, this, [this, uploader, voiceItem](const QString &errorMsg) {
-                    qDebug() << "[VOICE] Upload failed:" << errorMsg;
                     
                     // Remove voice item on error
                     if (voiceItem) {
@@ -1124,6 +970,14 @@ void ServerChatWindow::setupInputArea()
 {
     // 1. Get the layout of inputSection
     QWidget *inputSection = ui->inputSection;
+    
+    // Hide original UI elements that might be in the input section
+    // These are defined in the .ui file but we are replacing them with ChatInputWidget
+    if (ui->sendMessageBtn) ui->sendMessageBtn->hide();
+    if (ui->typeMessageTxt) ui->typeMessageTxt->hide();
+    if (ui->sendFileBtn) ui->sendFileBtn->hide();
+    if (ui->recordVoiceBtn) ui->recordVoiceBtn->hide();
+
     // Clear existing layout
     if (inputSection->layout()) {
         QLayoutItem *item;
@@ -1135,103 +989,19 @@ void ServerChatWindow::setupInputArea()
 
     // 2. Create new main layout
     QHBoxLayout *mainLayout = new QHBoxLayout(inputSection);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
-    mainLayout->setSpacing(10);
-
-    // 3. Create Smiley Button
-    QPushButton *smileyBtn = new QPushButton(inputSection);
-    smileyBtn->setText("☺"); 
-    smileyBtn->setFixedSize(40, 40);
-    smileyBtn->setFlat(true);
-    smileyBtn->setCursor(Qt::PointingHandCursor);
-    smileyBtn->setStyleSheet("QPushButton { border: none; font-size: 24px; color: #8e8e93; background: transparent; } QPushButton:hover { color: #007aff; }");
+    mainLayout->setContentsMargins(0, 0, 0, 0);
     
-    // 4. Create Input Container (White rounded box)
-    QFrame *inputContainer = new QFrame(inputSection);
-    inputContainer->setObjectName("inputContainer");
-    inputContainer->setStyleSheet(
-        "QFrame#inputContainer {"
-        "    background-color: #ffffff;"
-        "    border: 1px solid #e5e5ea;"
-        "    border-radius: 20px;"
-        "}"
-    );
+    m_chatInput = new ChatInputWidget(inputSection);
+    mainLayout->addWidget(m_chatInput);
+
+    // Connect signals
+    connect(m_chatInput, &ChatInputWidget::sendMessageClicked, this, &ServerChatWindow::onsendMessageBtnclicked);
+    connect(m_chatInput, &ChatInputWidget::sendFileClicked, this, &ServerChatWindow::onSendFileClicked);
+    connect(m_chatInput, &ChatInputWidget::recordVoiceClicked, this, &ServerChatWindow::onRecordVoiceButtonClicked);
+    connect(m_chatInput, &ChatInputWidget::textChanged, this, &ServerChatWindow::updateInputModeButtons);
     
-    QHBoxLayout *containerLayout = new QHBoxLayout(inputContainer);
-    containerLayout->setContentsMargins(15, 5, 10, 5);
-    containerLayout->setSpacing(5);
-
-    // 5. Configure Text Edit
-    ui->typeMessageTxt->setParent(inputContainer);
-    ui->typeMessageTxt->setStyleSheet(
-        "QTextEdit {"
-        "    background-color: transparent;"
-        "    border: none;"
-        "    color: #000000;"
-        "    font-size: 14px;"
-        "    padding-top: 12px;"
-        "}"
-    );
-    ui->typeMessageTxt->setFixedHeight(50);
-    ui->typeMessageTxt->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    ui->typeMessageTxt->setPlaceholderText("Write message...");
-
-    // 6. Configure Attachment Button
-    ui->sendFileBtn->setParent(inputContainer);
-    // Use SVG icon
-    QIcon attachIcon("assets/attach.svg");
-    ui->sendFileBtn->setIcon(attachIcon);
-    ui->sendFileBtn->setIconSize(QSize(24, 24));
-    ui->sendFileBtn->setText(""); 
-    ui->sendFileBtn->setFixedSize(32, 32);
-    ui->sendFileBtn->setFlat(true);
-    ui->sendFileBtn->setCursor(Qt::PointingHandCursor);
-    ui->sendFileBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: black; }");
-
-    // 7. Configure Mic Button
-    if (ui->recordVoiceBtn) {
-        ui->recordVoiceBtn->setParent(inputContainer);
-        // Use SVG icon
-        QIcon micIcon("assets/mic.svg");
-        ui->recordVoiceBtn->setIcon(micIcon);
-        ui->recordVoiceBtn->setIconSize(QSize(24, 24));
-        ui->recordVoiceBtn->setText("");
-        ui->recordVoiceBtn->setFixedSize(32, 32);
-        ui->recordVoiceBtn->setFlat(true);
-        ui->recordVoiceBtn->setCursor(Qt::PointingHandCursor);
-        ui->recordVoiceBtn->setStyleSheet("QPushButton { border: none; background: transparent; color: black; }");
-    }
-
-    // 8. Configure Send Button
-    ui->sendMessageBtn->setParent(inputSection);
-    ui->sendMessageBtn->setText("Send");
-    ui->sendMessageBtn->setFixedSize(80, 40);
-    ui->sendMessageBtn->setCursor(Qt::PointingHandCursor);
-    ui->sendMessageBtn->setStyleSheet(
-        "QPushButton {"
-        "    background-color: #007aff;"
-        "    color: white;"
-        "    border: none;"
-        "    border-radius: 20px;"
-        "    font-weight: bold;"
-        "    font-size: 14px;"
-        "}"
-        "QPushButton:hover { background-color: #0062cc; }"
-        "QPushButton:pressed { background-color: #004999; }"
-        "QPushButton:disabled { background-color: #b3d7ff; }"
-    );
-
-    // 9. Assemble
-    mainLayout->addWidget(smileyBtn);
-    
-    containerLayout->addWidget(ui->typeMessageTxt);
-    containerLayout->addWidget(ui->sendFileBtn);
-    if (ui->recordVoiceBtn) {
-        containerLayout->addWidget(ui->recordVoiceBtn);
-    }
-    
-    mainLayout->addWidget(inputContainer);
-    mainLayout->addWidget(ui->sendMessageBtn);
+    // Install event filter on text edit
+    m_chatInput->textEdit()->installEventFilter(this);
 }
 
 // --- ADD THIS NEW FUNCTION ---
@@ -1266,6 +1036,27 @@ void ServerChatWindow::updateUserCardInfo(const QString &username, const QString
             }
             break;
         }
+    }
+}
+
+void ServerChatWindow::updateEmptyStateVisibility()
+{
+    if (!ui || !ui->chatHistoryWdgt || !m_emptyMessageState) {
+        return;
+    }
+    
+    // Show empty state only when in private chat mode AND there are no messages
+    bool isEmpty = m_isPrivateChat && ui->chatHistoryWdgt->count() == 0;
+    m_emptyMessageState->setVisible(isEmpty);
+}
+
+void ServerChatWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    
+    // Update empty state geometry to match chat history widget
+    if (m_emptyMessageState && ui && ui->chatHistoryWdgt) {
+        m_emptyMessageState->setGeometry(ui->chatHistoryWdgt->geometry());
     }
 }
 

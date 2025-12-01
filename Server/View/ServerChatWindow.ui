@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1015</width>
-    <height>931</height>
+    <width>1133</width>
+    <height>1001</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -118,6 +118,12 @@ QWidget#centralwidget {
             </property>
             <property name="text">
              <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/new/prefix1/Avatar.png</pixmap>
+            </property>
+            <property name="scaledContents">
+             <bool>true</bool>
             </property>
             <property name="alignment">
              <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -283,7 +289,7 @@ QWidget#centralwidget {
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_4">
              <property name="leftMargin">
-              <number>24</number>
+              <number>0</number>
              </property>
              <property name="topMargin">
               <number>0</number>
@@ -395,7 +401,7 @@ QWidget#centralwidget {
            <number>10</number>
           </property>
           <property name="leftMargin">
-           <number>16</number>
+           <number>0</number>
           </property>
           <property name="topMargin">
            <number>16</number>
@@ -472,33 +478,10 @@ color: #666666;</string>
               <item>
                <widget class="QListWidget" name="userListWdgt">
                 <property name="layoutDirection">
-                 <enum>Qt::LayoutDirection::LeftToRight</enum>
+                 <enum>Qt::LayoutDirection::RightToLeft</enum>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">QListWidget {
-    background-color: #ffffff;
-    border: none;
-    font-size: 11pt;
-    padding: 6px;
-    color: #111827;
-    min-width: 260;
-    max-width:260;
-}
-QListWidget::item {
-    background-color: transparent;
-    border: none;
-    border-radius: 10px;
-    padding: 12px;
-    margin: 4px 0px;
-    color: #111827;
-}
-QListWidget::item:hover {
-    background-color: #f0f4ff;
-}
-QListWidget::item:selected {
-    background-color: #3b82f6;
-    color: #ffffff;
-}</string>
+                 <string notr="true"/>
                 </property>
                </widget>
               </item>
@@ -792,6 +775,50 @@ QListWidget::item:selected:hover {
     background-color: transparent;
     border: none;
     outline: none;
+}
+
+/* --- SCROLLBAR STYLING --- */
+
+QScrollBar:vertical {
+    border: none;
+    background: #f0f0f0;
+    width: 8px;
+    margin: 0px 0px 0px 0px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #c1c1c1;
+    min-height: 20px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #a8a8a8;
+}
+
+QScrollBar::handle:vertical:pressed {
+    background-color: #787878;
+}
+
+QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+}
+
+QScrollBar::add-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+    background: none;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
 }</string>
          </property>
          <property name="horizontalScrollBarPolicy">
@@ -949,7 +976,7 @@ QTextEdit:focus {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1015</width>
+     <width>1133</width>
      <height>23</height>
     </rect>
    </property>

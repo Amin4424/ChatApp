@@ -7,6 +7,9 @@
 #include <QIcon>
 #include "MessageAliases.h"
 #include "ChatHeader.h" // Added ChatHeader
+#include "Components/UserListManager.h" // Added UserListManager
+#include "ChatInputWidget.h" // Added ChatInputWidget
+#include "EmptyMessageState.h" // Empty state widget
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QMediaRecorder>
@@ -41,11 +44,13 @@ protected:
     void handleSendMessage() override;
     void handleFileUpload() override;
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void changeEvent(QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     void onsendMessageBtnclicked();
     void onchatHistoryWdgtitemClicked(QListWidgetItem *item);
-    void onUserListItemClicked(QListWidgetItem *item);
+    // void onUserListItemClicked(QListWidgetItem *item); // Handled by UserListManager
     void onRestartServerClicked();
     void onSendFileClicked();
     void onRecordVoiceButtonClicked();
@@ -76,11 +81,13 @@ public:
     void onBroadcastModeClicked();
     void updateServerInfo(const QString &ip, int port, const QString &status);
     void clearChatHistory();
-    void updateUserListSelection();
+    // void updateUserListSelection(); // Handled by UserListManager
     void updateUserCardInfo(const QString &username, const QString &lastMessage, const QString &time, int unreadCount);
 
 private:
     Ui::ServerChatWindow *ui;
+    UserListManager *m_userListManager; // Added UserListManager
+    ChatInputWidget *m_chatInput; // Added ChatInputWidget
     bool m_isPrivateChat;
     QString m_currentTargetUser;
     QProgressBar *m_uploadProgressBar;
@@ -111,8 +118,10 @@ private:
     QIcon m_sendButtonEditIcon;
 
     ChatHeader *m_chatHeader; // Added ChatHeader
+    EmptyMessageState *m_emptyMessageState; // Empty state widget
 
     void updateSendButtonForEditState();
+    void updateEmptyStateVisibility();
     void applyModernTheme();
     void setupInputArea(); // Add this line
 };

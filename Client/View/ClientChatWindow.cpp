@@ -1,7 +1,7 @@
 #include "View/ClientChatWindow.h"
 #include "ui_ClientChatWindow.h"
 #include <QKeyEvent>
-#include <QDebug>
+#include <QResizeEvent>
 #include <QRegularExpression>
 
 // --- ADD THESE INCLUDES ---
@@ -43,6 +43,8 @@
 #include "ToastNotification.h"
 #include "ModernThemeApplier.h"
 #include "ModernTheme.h"
+#include "ChatStyles.h"
+#include "EmptyMessageState.h"
 // ---
 
 ClientChatWindow::ClientChatWindow(QWidget *parent)
@@ -70,6 +72,12 @@ ClientChatWindow::ClientChatWindow(QWidget *parent)
     m_chatHeader = new ChatHeader(this);
     // Insert at top of chat section (verticalLayout is the layout of chatSection)
     ui->verticalLayout->insertWidget(0, m_chatHeader);
+    
+    // Create empty message state widget as child of chatHistoryWdgt's parent
+    m_emptyMessageState = new EmptyMessageState(ui->chatHistoryWdgt->parentWidget());
+    m_emptyMessageState->setGeometry(ui->chatHistoryWdgt->geometry());
+    m_emptyMessageState->raise(); // Bring to front
+    updateEmptyStateVisibility();
     
     setupInputArea(); // <-- Call the new setup method
     m_recordButtonDefaultStyle = ui->recordVoiceBtn->styleSheet();
@@ -102,7 +110,6 @@ ClientChatWindow::ClientChatWindow(QWidget *parent)
     connect(m_mediaRecorder, &QMediaRecorder::recorderStateChanged,
             this, &ClientChatWindow::onRecorderStateChanged);
     
-    qDebug() << "[VOICE DEBUG] QMediaCaptureSession and QMediaRecorder initialized in constructor";
 #endif
 
     // Install event filter for Enter key
@@ -165,7 +172,15 @@ void ClientChatWindow::applyModernTheme()
     
     // Set overall window background
     setStyleSheet("QMainWindow { background-color: " + ModernTheme::CHAT_BACKGROUND + "; }");
+
+    // Apply scrollable user list style so client sidebar matches server styling
+    if (QListWidget *userList = this->findChild<QListWidget*>("userListWdgt")) {
+        userList->setStyleSheet(ChatStyles::getUserListStyle() + ChatStyles::getScrollBarStyle());
+    }
+
+    ui->chatHistoryWdgt->setStyleSheet(ChatStyles::getChatHistoryStyle() + ChatStyles::getScrollBarStyle());
 }
+
 
 ClientChatWindow::~ClientChatWindow()
 {
@@ -223,7 +238,6 @@ void ClientChatWindow::onsendMessageBtnclicked()
 
 void ClientChatWindow::onchatHistoryWdgtitemClicked(QListWidgetItem *item)
 {
-    qDebug() << "You clicked on message:" << item->text();
 }
 
 // void ClientChatWindow::showMessage(const QString &msg)
@@ -335,30 +349,24 @@ void ClientChatWindow::onSendFileClicked()
         uploader->deleteLater();
     });
 
-    qDebug() << "Starting upload of" << filePath << "to" << tusEndpointUrl;
     uploader->startUpload(filePath, tusEndpoint);
 }
 
 void ClientChatWindow::onRecordVoiceButtonClicked()
 {
-    qDebug() << "[VOICE] Record button clicked, isRecording:" << m_isRecording;
     
     if (m_isRecording) {
-        qDebug() << "[VOICE] Stopping recording...";
         stopVoiceRecording();
         return;
     }
 
     if (!ensureMicrophonePermission()) {
-        qDebug() << "[VOICE] Microphone permission denied";
         return;
     }
 
     if (!startVoiceRecording()) {
-        qDebug() << "[VOICE] Failed to start recording";
         // Don't show dialog - just log error
     } else {
-        qDebug() << "[VOICE] Recording started successfully";
         ui->statusbar->showMessage(tr("Recording voice message..."));
     }
 }
@@ -385,7 +393,6 @@ bool ClientChatWindow::startVoiceRecording()
     
     QDir directory(recordingsRoot + "/MessengerVoiceNotes");
     if (!directory.exists() && !directory.mkpath(".")) {
-        qDebug() << "[VOICE] Unable to prepare folder for storing voice notes";
         return false;
     }
 
@@ -400,13 +407,11 @@ bool ClientChatWindow::startVoiceRecording()
     QAudioDevice audioDevice = QMediaDevices::defaultAudioInput();
     
     if (audioDevice.isNull()) {
-        qDebug() << "[VOICE] No audio input device available!";
         return false;
     }
     
     m_audioInput = new QAudioInput(audioDevice, this);
     m_captureSession->setAudioInput(m_audioInput);
-    qDebug() << "[VOICE] Audio input configured:" << audioDevice.description();
     
     const QString extension = "m4a";
 #else
@@ -428,14 +433,9 @@ bool ClientChatWindow::startVoiceRecording()
     m_mediaRecorder->setQuality(QMediaRecorder::HighQuality);
     m_mediaRecorder->setOutputLocation(QUrl::fromLocalFile(m_currentRecordingPath));
     
-    qDebug() << "[VOICE] Recording to:" << m_currentRecordingPath;
-    qDebug() << "[VOICE] Recorder state before record():" << m_mediaRecorder->recorderState();
-    qDebug() << "[VOICE] Recorder error before record():" << m_mediaRecorder->error() << m_mediaRecorder->errorString();
     
     m_mediaRecorder->record();
     
-    qDebug() << "[VOICE] Recorder state after record():" << m_mediaRecorder->recorderState();
-    qDebug() << "[VOICE] Recorder error after record():" << m_mediaRecorder->error() << m_mediaRecorder->errorString();
 #else
     m_audioRecorder->setAudioInput(m_audioRecorder->defaultAudioInput());
     QAudioEncoderSettings audioSettings;
@@ -466,7 +466,6 @@ void ClientChatWindow::stopVoiceRecording(bool notifyUser)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     if (m_mediaRecorder && m_mediaRecorder->recorderState() != QMediaRecorder::StoppedState) {
         m_mediaRecorder->stop();
-        qDebug() << "[VOICE] Recording stopped";
     }
 #else
     if (m_audioRecorder) {
@@ -490,19 +489,16 @@ void ClientChatWindow::onRecorderStateChanged(QMediaRecorder::RecorderState stat
             QFileInfo fileInfo(m_currentRecordingPath);
             
             if (!fileInfo.exists() || fileInfo.size() == 0) {
-                qDebug() << "[VOICE] Recording failed - file not created or empty";
                 m_currentRecordingPath.clear();
                 return;
             }
             
-            qDebug() << "[VOICE] Recording saved:" << fileInfo.size() << "bytes - Generating waveform...";
             
             // Generate waveform from the recorded file BEFORE upload
             AudioWaveform *waveformGen = new AudioWaveform(this);
             QString recordingPath = m_currentRecordingPath; // Copy for lambda
             
             connect(waveformGen, &AudioWaveform::waveformReady, this, [this, fileInfo, recordingPath, waveformGen](const QVector<qreal> &waveform) {
-                qDebug() << "[VOICE] Waveform generated with" << waveform.size() << "samples - Starting upload...";
                 
                 // **NEW: ساخت AudioMessage قبل از شروع آپلود**
                 AudioMessage* voiceItem = new AudioMessage(
@@ -532,7 +528,6 @@ void ClientChatWindow::onRecorderStateChanged(QMediaRecorder::RecorderState stat
                 });
 
                 connect(uploader, &TusUploader::finished, this, [this, uploader, fileInfo, waveform, voiceItem](const QString &fileUrl, qint64 uploadedSize, const QByteArray &) {
-                    qDebug() << "🟢 [VOICE UPLOAD] TusUploader finished - fileName:" << fileInfo.fileName();
                     
                     // Update voice item with actual URL
                     if (voiceItem) {
@@ -541,15 +536,12 @@ void ClientChatWindow::onRecorderStateChanged(QMediaRecorder::RecorderState stat
                     }
                     
                     // Emit with waveform data
-                    qDebug() << "📤 [VOICE UPLOAD] Emitting fileUploaded signal for voice:" << fileInfo.fileName();
                     emit fileUploaded(fileInfo.fileName(), fileUrl, fileInfo.size(), m_serverHost, waveform);
-                    qDebug() << "[VOICE] Upload successful:" << fileUrl << "with waveform size:" << waveform.size();
                     
                     uploader->deleteLater();
                 });
 
                 connect(uploader, &TusUploader::error, this, [this, uploader, voiceItem](const QString &errorMsg) {
-                    qDebug() << "[VOICE] Upload failed:" << errorMsg;
                     
                     // Remove voice item on error
                     if (voiceItem) {
@@ -597,6 +589,9 @@ void ClientChatWindow::addMessageItem(QWidget *messageItem)
             refreshMessageItem(messageItem);
         });
     }
+    
+    // Update empty state visibility
+    updateEmptyStateVisibility();
 }
 
 void ClientChatWindow::removeMessageItem(QWidget *messageItem)
@@ -615,19 +610,19 @@ void ClientChatWindow::removeMessageItem(QWidget *messageItem)
             break;
         }
     }
+    
+    // Update empty state visibility
+    updateEmptyStateVisibility();
 }
 
 void ClientChatWindow::removeMessageByDatabaseId(int databaseId)
 {
-    qDebug() << "🔍 [CLIENT removeMessageByDatabaseId] Looking for message ID:" << databaseId;
     
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [CLIENT removeMessageByDatabaseId] UI or chatHistoryWdgt is null";
         return;
     }
 
     QListWidget *list = ui->chatHistoryWdgt;
-    qDebug() << "🔍 [CLIENT removeMessageByDatabaseId] Total messages in list:" << list->count();
     
     for (int index = 0; index < list->count(); ++index) {
         QListWidgetItem *item = list->item(index);
@@ -648,30 +643,24 @@ void ClientChatWindow::removeMessageByDatabaseId(int databaseId)
             widgetType = "AudioMessage";
         }
         
-        qDebug() << "🔍 [CLIENT] Checking" << widgetType << "at index" << index << "with DB ID:" << widgetDbId;
         
         if (widgetDbId == databaseId && widgetDbId >= 0) {
             QListWidgetItem *removed = list->takeItem(index);
             delete removed;
             widget->deleteLater();
-            qDebug() << "✅ [CLIENT] Removed" << widgetType << "with DB ID:" << databaseId << "at index:" << index;
             return;
         }
     }
-    qDebug() << "❌ [CLIENT removeMessageByDatabaseId] Message ID" << databaseId << "not found";
 }
 
 void ClientChatWindow::updateMessageByDatabaseId(int databaseId, const QString &newText)
 {
-    qDebug() << "🔍 [CLIENT updateMessageByDatabaseId] Looking for message ID:" << databaseId << "New text:" << newText;
     
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [CLIENT updateMessageByDatabaseId] UI or chatHistoryWdgt is null";
         return;
     }
 
     QListWidget *list = ui->chatHistoryWdgt;
-    qDebug() << "🔍 [CLIENT updateMessageByDatabaseId] Total messages in list:" << list->count();
     
     for (int index = 0; index < list->count(); ++index) {
         QListWidgetItem *item = list->item(index);
@@ -679,28 +668,21 @@ void ClientChatWindow::updateMessageByDatabaseId(int databaseId, const QString &
         
         // Try to cast to TextMessage (only text messages can be edited)
         if (TextMessage *textItem = qobject_cast<TextMessage*>(widget)) {
-            qDebug() << "🔍 [CLIENT] Checking TextMessage at index" << index << "with DB ID:" << textItem->databaseId();
-            qDebug() << "🔍 [CLIENT] Checking message at index" << index << "with DB ID:" << textItem->databaseId();
             if (textItem->databaseId() == databaseId) {
                 textItem->updateMessageText(newText);
                 textItem->markAsEdited(true);
                 refreshMessageItem(textItem);
-                qDebug() << "✅ [CLIENT] Updated message with DB ID:" << databaseId << "to:" << newText;
                 return;
             }
         } else {
-            qDebug() << "⚠️ [CLIENT] Widget at index" << index << "is not TextMessage";
         }
     }
-    qDebug() << "❌ [CLIENT updateMessageByDatabaseId] Message ID" << databaseId << "not found";
 }
 
 void ClientChatWindow::removeLastMessageFromSender(const QString &senderName)
 {
-    qDebug() << "🔍 [CLIENT removeLastMessageFromSender] Looking for last message from:" << senderName;
     
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [CLIENT removeLastMessageFromSender] UI or chatHistoryWdgt is null";
         return;
     }
 
@@ -717,20 +699,16 @@ void ClientChatWindow::removeLastMessageFromSender(const QString &senderName)
                 QListWidgetItem *removed = list->takeItem(index);
                 delete removed;
                 widget->deleteLater();
-                qDebug() << "✅ [CLIENT] Removed last message from" << senderName << "at index" << index;
                 return;
             }
         }
     }
-    qDebug() << "❌ [CLIENT removeLastMessageFromSender] No message found from" << senderName;
 }
 
 void ClientChatWindow::updateLastMessageFromSender(const QString &senderName, const QString &newText)
 {
-    qDebug() << "🔍 [CLIENT updateLastMessageFromSender] Looking for last message from:" << senderName;
     
     if (!ui || !ui->chatHistoryWdgt) {
-        qDebug() << "❌ [CLIENT updateLastMessageFromSender] UI or chatHistoryWdgt is null";
         return;
     }
 
@@ -747,12 +725,10 @@ void ClientChatWindow::updateLastMessageFromSender(const QString &senderName, co
                 textItem->updateMessageText(newText);
                 textItem->markAsEdited(true);
                 refreshMessageItem(textItem);
-                qDebug() << "✅ [CLIENT] Updated last message from" << senderName << "at index" << index << "to:" << newText;
                 return;
             }
         }
     }
-    qDebug() << "❌ [CLIENT updateLastMessageFromSender] No message found from" << senderName;
 }
 
 void ClientChatWindow::setComposerText(const QString &text, bool focus)
@@ -959,4 +935,33 @@ void ClientChatWindow::setupInputArea()
     
     mainLayout->addWidget(inputContainer);
     mainLayout->addWidget(ui->sendMessageBtn);
+}
+void ClientChatWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::ActivationChange) {
+        // Just emit the signal. The Controller decides what to do.
+        emit windowStateChanged(isActiveWindow());
+    }
+    QMainWindow::changeEvent(event);
+}
+
+void ClientChatWindow::updateEmptyStateVisibility()
+{
+    if (!ui || !ui->chatHistoryWdgt || !m_emptyMessageState) {
+        return;
+    }
+    
+    // Show empty state only when there are no messages
+    bool isEmpty = ui->chatHistoryWdgt->count() == 0;
+    m_emptyMessageState->setVisible(isEmpty);
+}
+
+void ClientChatWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    
+    // Update empty state geometry to match chat history widget
+    if (m_emptyMessageState && ui && ui->chatHistoryWdgt) {
+        m_emptyMessageState->setGeometry(ui->chatHistoryWdgt->geometry());
+    }
 }

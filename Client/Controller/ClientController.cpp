@@ -5,8 +5,7 @@
 #include "MessageAliases.h"
 #include "MessageData.h"
 #include "MessageComponent.h"
-
-#include <QDebug>
+#include "../../CommonCore/NotificationManager.h"
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -36,31 +35,24 @@ ClientController::ClientController(ClientChatWindow *view, WebSocketClient *clie
     , m_db(db)
     , m_clientUserId("Client")
 {
-    qDebug() << "🔥 [ClientController] Constructor called";
     
     if (m_clientView) {
-        qDebug() << "🔥 [ClientController] Connecting signals from ClientChatWindow...";
-        
+        NotificationManager::instance().setup(m_clientView);
         // FIX: Use sendMessageRequested instead of messageSent
         connect(m_clientView, &ClientChatWindow::sendMessageRequested, this, &ClientController::displayNewMessages);
-        qDebug() << "✅ [ClientController] Connected sendMessageRequested signal";
         
         connect(m_clientView, &ClientChatWindow::fileUploaded, this, &ClientController::onFileUploaded);
-        qDebug() << "✅ [ClientController] Connected fileUploaded signal";
         
         connect(m_clientView, &ClientChatWindow::messageEditConfirmed,
                 this, &ClientController::onTextMessageEditConfirmed);
-        qDebug() << "✅ [ClientController] Connected messageEditConfirmed signal";
+        
+        connect(m_clientView, &ClientChatWindow::windowStateChanged, this, &ClientController::onWindowStateChanged);
     } else {
-        qDebug() << "⚠️ [ClientController] m_clientView is NULL!";
     }
 
     if (m_client) {
-        qDebug() << "🔥 [ClientController] Connecting signals from WebSocketClient...";
         connect(m_client, &WebSocketClient::messageReceived, this, &ClientController::onMessageReceived);
-        qDebug() << "✅ [ClientController] Connected messageReceived signal";
     } else {
-        qDebug() << "⚠️ [ClientController] m_client is NULL!";
     }
 
     loadHistory();
@@ -167,16 +159,12 @@ void ClientController::setupVoiceMessageItem(VoiceMessageItem *item)
 
 void ClientController::displayNewConnection()
 {
-    qDebug() << "ClientController: Connection established";
 }
 
 void ClientController::displayNewMessages(const QString &message)
 {
-    qDebug() << "🔥🔥🔥 [ClientController::displayNewMessages] CALLED!";
-    qDebug() << "🔥 [ClientController] Message received:" << message;
     
     if (message.isEmpty()) {
-        qDebug() << "⚠️ [ClientController] Message is empty, aborting";
         return;
     }
 
@@ -196,38 +184,24 @@ void ClientController::displayNewMessages(const QString &message)
     for (const QString &chunk : chunks) {
         MessageData chunkData = msgData;
         chunkData.text = chunk;
-        
         // 2. Send via WebSocket (convert to JSON)
         if (m_client) {
             QString jsonMessage = QString(R"({"type":"text","content":"%1","sender":"Client","timestamp":"%2"})")
                                       .arg(chunk)
                                       .arg(isoTimestamp);
-            qDebug() << "✅ [ClientController] JSON chunk message:" << jsonMessage;
             m_client->sendMessage(jsonMessage);
-            qDebug() << "✅ [ClientController] Chunk sent to WebSocket";
-        } else {
-            qDebug() << "❌ [ClientController] WebSocket client is NULL!";
         }
-        
         // 3. Save to database
         if (m_db) {
-            qDebug() << "✅ [ClientController] Saving chunk to database...";
             int dbId = m_db->saveMessage(m_clientUserId, "Server", chunk, QDateTime::currentDateTime(), false);
             chunkData.databaseId = dbId;
-        } else {
-            qDebug() << "⚠️ [ClientController] Database is NULL!";
         }
-        
         chunkData.isEdited = false;
-        
         // 4. Create widget from data
         QWidget* itemWidget = createWidgetFromData(chunkData);
-        
         // 5. Show in client window
         if (m_clientView) {
-            qDebug() << "✅ [ClientController] Adding chunk to UI...";
             m_clientView->addMessageItem(itemWidget);
-            
             TextMessageItem* textItem = qobject_cast<TextMessageItem*>(itemWidget);
             if (textItem) {
                 textItem->setDatabaseId(chunkData.databaseId);
@@ -236,19 +210,12 @@ void ClientController::displayNewMessages(const QString &message)
                 }
                 textItem->markAsSent();
             }
-            
-            qDebug() << "✅ [ClientController] Chunk added to UI";
-        } else {
-            qDebug() << "❌ [ClientController] ClientView is NULL!";
         }
     }
-    
-    qDebug() << "🎉 [ClientController] displayNewMessages completed!";
 }
 
 void ClientController::displayFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &sender, const QString &serverHost)
 {
-    qDebug() << "ClientController: Displaying file message:" << fileName << fileSize << fileUrl << sender;
     
     QString senderInfo = sender.isEmpty() ? "You" : sender;
     auto type = sender.isEmpty() ? BaseChatWindow::MessageType::Sent : BaseChatWindow::MessageType::Received;
@@ -271,18 +238,12 @@ void ClientController::displayFileMessage(const QString &fileName, qint64 fileSi
 
 void ClientController::onMessageReceived(const QString &message)
 {
-    qDebug() << "🔔 [CLIENT] ===== RAW MESSAGE RECEIVED =====" << message;
-    
     // 1. Parse JSON
     QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
     if (!doc.isObject()) {
-        qDebug() << "❌ [CLIENT] Invalid JSON message:" << message;
         return;
     }
-    
     QJsonObject obj = doc.object();
-    qDebug() << "✅ [CLIENT] JSON parsed successfully";
-    
     // 2. Create MessageData object (Model)
     MessageData msgData;
     msgData.senderType = MessageData::User_Other; // Always from other side
@@ -290,7 +251,12 @@ void ClientController::onMessageReceived(const QString &message)
     if (msgData.senderName.isEmpty()) {
         msgData.senderName = "Server";
     }
-    
+    NotificationManager::instance().checkAndNotify(
+        msgData.senderName,
+        "You have unread message!",
+        "Server", // Client is always looking at Server chat technically
+        false
+        );
     QString timestampStr = obj["timestamp"].toString();
     if (!timestampStr.isEmpty()) {
         QDateTime dt = QDateTime::fromString(timestampStr, Qt::ISODate);
@@ -298,34 +264,19 @@ void ClientController::onMessageReceived(const QString &message)
     } else {
         msgData.timestamp = QDateTime::currentDateTime().toString("hh:mm");
     }
-    
     QString type = obj["type"].toString();
-    
-    qDebug() << "📨 [CLIENT MessageReceived] Type:" << type << "From:" << msgData.senderName;
-    
     // Handle delete message
     if (type == "delete") {
         int messageId = obj["messageId"].toInt();
         QString sender = msgData.senderName;
-        qDebug() << "🗑️ [CLIENT Delete Received] Message ID:" << messageId << "from sender:" << sender;
-        qDebug() << "🔍 [CLIENT Delete] Full JSON:" << obj;
-        
         // First try to find by database ID
         if (m_clientView) {
             m_clientView->removeMessageByDatabaseId(messageId);
-            qDebug() << "✅ [CLIENT Delete Received] Called removeMessageByDatabaseId";
-            
             // If not found by ID, try to remove last message from sender
             m_clientView->removeLastMessageFromSender(sender);
-            qDebug() << "✅ [CLIENT Delete Received] Called removeLastMessageFromSender";
-        } else {
-            qDebug() << "❌ [CLIENT Delete] m_clientView is null";
         }
         if (m_db) {
             m_db->deleteMessage(messageId);
-            qDebug() << "✅ [CLIENT Delete Received] Deleted from database";
-        } else {
-            qDebug() << "❌ [CLIENT Delete] m_db is null";
         }
         return;
     }
@@ -335,25 +286,18 @@ void ClientController::onMessageReceived(const QString &message)
         int messageId = obj["messageId"].toInt();
         QString newText = obj["newText"].toString();
         QString sender = msgData.senderName;
-        qDebug() << "✏️ [CLIENT Edit Received] Message ID:" << messageId << "New text:" << newText << "from sender:" << sender;
-        qDebug() << "🔍 [CLIENT Edit] Full JSON:" << obj;
         
         // First try to find by database ID
         if (m_clientView) {
             m_clientView->updateMessageByDatabaseId(messageId, newText);
-            qDebug() << "✅ [CLIENT Edit Received] Called updateMessageByDatabaseId";
             
             // If not found by ID, try to update last message from sender
             m_clientView->updateLastMessageFromSender(sender, newText);
-            qDebug() << "✅ [CLIENT Edit Received] Called updateLastMessageFromSender";
         } else {
-            qDebug() << "❌ [CLIENT Edit] m_clientView is null";
         }
         if (m_db) {
             m_db->updateMessage(messageId, newText, true);
-            qDebug() << "✅ [CLIENT Edit Received] Updated database";
         } else {
-            qDebug() << "❌ [CLIENT Edit] m_db is null";
         }
         return;
     }
@@ -386,7 +330,6 @@ void ClientController::onMessageReceived(const QString &message)
                 waveform.append(val.toDouble());
             }
             msgData.voiceInfo.waveform = waveform;
-            qDebug() << "📊 Received waveform with" << waveform.size() << "samples";
         }
         
         if (msgData.fileInfo.fileName.isEmpty()) {
@@ -432,7 +375,6 @@ void ClientController::onMessageReceived(const QString &message)
         }
         if (!dbMessage.isEmpty()) {
             msgData.databaseId = m_db->saveMessage("Server", m_clientUserId, dbMessage, QDateTime::currentDateTime(), false);
-            qDebug() << "✅ [CLIENT] Saved file/voice to DB with ID:" << msgData.databaseId;
         }
     } else {
         msgData.databaseId = -1;
@@ -465,8 +407,6 @@ QStringList ClientController::splitMessageIntoChunks(const QString &text) const
 
 void ClientController::onFileUploaded(const QString &fileName, const QString &url, qint64 fileSize, const QString &serverHost, const QVector<qreal> &waveform)
 {
-    qDebug() << "🔴 [CONTROLLER] onFileUploaded called - fileName:" << fileName << "waveform size:" << waveform.size();
-    qDebug() << "ClientController: File uploaded:" << fileName << url << fileSize << serverHost << "waveform size:" << waveform.size();
     
     // Store server host for future downloads
     if (!serverHost.isEmpty()) {
@@ -520,11 +460,9 @@ void ClientController::onFileUploaded(const QString &fileName, const QString &ur
         if (m_db) {
             QString voiceMessage = QString("VOICE|%1|0|%2|%3").arg(fileName).arg(url).arg(waveformJson);
             m_db->saveMessage(m_clientUserId, "Server", voiceMessage, QDateTime::currentDateTime(), false);
-            qDebug() << "🎙️ Saving voice to DB with waveform size:" << waveform.size();
         }
         
         // **FIX: voice widget قبلاً در View ساخته شده - نباید دوباره بسازیم**
-        qDebug() << "🟣 [CONTROLLER] SKIPPING widget creation for VOICE (already created in View):" << fileName;
     } else {
         // Regular file message
         msgData.isFileMessage = true;
@@ -550,8 +488,6 @@ void ClientController::onFileUploaded(const QString &fileName, const QString &ur
             m_db->saveMessage(m_clientUserId, "Server", fileMessage, QDateTime::currentDateTime(), false);
         }
         
-        // **FIX: file widget قبلاً در View ساخته شده - نباید دوباره بسازیم**
-        qDebug() << "🟣 [CONTROLLER] SKIPPING widget creation for FILE (already created in View):" << fileName;
     }
 }
 
@@ -559,7 +495,6 @@ void ClientController::loadHistory()
 {
     if (!m_db || !m_clientView) return;
     
-    qDebug() << "ClientController: Loading message history";
     
     QStringList history = m_db->loadMessagesBetween(m_clientUserId, "Server");
     
@@ -607,7 +542,6 @@ void ClientController::loadHistory()
                             waveform.append(val.toDouble());
                         }
                         msgData.voiceInfo.waveform = waveform;
-                        qDebug() << "📊 [loadHistory] Loaded waveform from DB with" << waveform.size() << "samples";
                     }
                 }
             }
@@ -685,40 +619,23 @@ void ClientController::onTextMessageDeleteRequested(TextMessageItem *item)
 
 void ClientController::onFileMessageDeleteRequested(FileMessageItem *item)
 {
-    qDebug() << "🗑️🗑️🗑️ [CLIENT onFileMessageDeleteRequested] CALLED!";
-    qDebug() << "    Item:" << item;
-    qDebug() << "    Database ID:" << (item ? item->databaseId() : -999);
-    qDebug() << "    Direction:" << (item ? static_cast<int>(item->direction()) : -999);
     handleDeleteRequest(item, DeleteRequestScope::Prompt);
 }
 
 void ClientController::onVoiceMessageDeleteRequested(VoiceMessageItem *item)
 {
-    qDebug() << "🗑️🗑️🗑️ [CLIENT onVoiceMessageDeleteRequested] CALLED!";
-    qDebug() << "    Item:" << item;
-    qDebug() << "    Database ID:" << (item ? item->databaseId() : -999);
-    qDebug() << "    Direction:" << (item ? static_cast<int>(item->direction()) : -999);
     handleDeleteRequest(item, DeleteRequestScope::Prompt);
 }
 
 void ClientController::handleDeleteRequest(MessageComponent *item, DeleteRequestScope scope)
 {
-    qDebug() << "🔥🔥🔥 [handleDeleteRequest] CALLED!";
-    qDebug() << "    Item:" << item;
-    qDebug() << "    Scope:" << static_cast<int>(scope);
     
     if (!m_clientView || !item) {
-        qDebug() << "❌ [handleDeleteRequest] m_clientView or item is NULL!";
-        qDebug() << "    m_clientView:" << m_clientView;
-        qDebug() << "    item:" << item;
         return;
     }
 
-    qDebug() << "    Database ID:" << item->databaseId();
-    qDebug() << "    Direction:" << static_cast<int>(item->direction()) << "(0=Incoming, 1=Outgoing)";
     
     if (scope != DeleteRequestScope::MeOnly && item->direction() != MessageDirection::Outgoing) {
-        qDebug() << "⚠️ [handleDeleteRequest] Cannot delete - not outgoing message";
         if (scope == DeleteRequestScope::Prompt) {
             m_clientView->showTransientNotification(tr("You can only delete your messages"));
         } else {
@@ -728,12 +645,10 @@ void ClientController::handleDeleteRequest(MessageComponent *item, DeleteRequest
     }
 
     if (item->databaseId() < 0) {
-        qDebug() << "⚠️ [handleDeleteRequest] Cannot delete - invalid database ID:" << item->databaseId();
         m_clientView->showTransientNotification(tr("Message cannot be deleted right now"));
         return;
     }
 
-    qDebug() << "✅ [handleDeleteRequest] Showing delete dialog...";
     
     bool deleteForBoth = false;
     QMessageBox msgBox(m_clientView);
@@ -749,15 +664,11 @@ void ClientController::handleDeleteRequest(MessageComponent *item, DeleteRequest
         msgBox.setDefaultButton(QMessageBox::No);
 
         int result = msgBox.exec();
-        qDebug() << "    Dialog result:" << result << "(Yes=" << QMessageBox::Yes << ")";
         if (result != QMessageBox::Yes) {
-            qDebug() << "ℹ️ [handleDeleteRequest] User cancelled delete";
             return;
         }
         deleteForBoth = deleteForBothCheckbox->isChecked();
-        qDebug() << "    Delete for both:" << deleteForBoth;
     } else {
-        qDebug() << "    Using predefined scope:" << static_cast<int>(scope);
         if (scope == DeleteRequestScope::BothSides) {
             msgBox.setText(tr("This message will be removed for both sides. Are you sure?"));
         } else {
@@ -766,30 +677,21 @@ void ClientController::handleDeleteRequest(MessageComponent *item, DeleteRequest
         msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
         msgBox.setDefaultButton(QMessageBox::No);
         int result = msgBox.exec();
-        qDebug() << "    Dialog result:" << result << "(Yes=" << QMessageBox::Yes << ")";
         if (result != QMessageBox::Yes) {
-            qDebug() << "ℹ️ [handleDeleteRequest] User cancelled delete";
             return;
         }
         deleteForBoth = (scope == DeleteRequestScope::BothSides);
-        qDebug() << "    Delete for both:" << deleteForBoth;
     }
 
-    qDebug() << "🗑️ [Delete] Starting delete for message ID:" << item->databaseId() << "Delete for both:" << deleteForBoth;
 
     if (m_db && item->databaseId() >= 0) {
         m_db->deleteMessage(item->databaseId());
-        qDebug() << "✅ [Delete] Deleted from database";
     } else {
-        qDebug() << "⚠️ [Delete] Could not delete from database - m_db:" << m_db << "databaseId:" << item->databaseId();
     }
 
-    qDebug() << "🗑️ [Delete] Calling removeMessageItem...";
     m_clientView->removeMessageItem(item);
-    qDebug() << "✅ [Delete] Removed from UI";
 
     if (deleteForBoth && m_client) {
-        qDebug() << "📤 [Delete] Preparing to send delete to server...";
         QJsonObject deleteMsg;
         deleteMsg["type"] = "delete";
         deleteMsg["messageId"] = item->databaseId();
@@ -798,26 +700,19 @@ void ClientController::handleDeleteRequest(MessageComponent *item, DeleteRequest
 
         QJsonDocument doc(deleteMsg);
         QString jsonMessage = doc.toJson(QJsonDocument::Compact);
-        qDebug() << "📤 [Delete] Sending delete message:" << jsonMessage;
         m_client->sendMessage(jsonMessage);
-        qDebug() << "📨 [Delete] Sent to server";
     } else if (deleteForBoth) {
-        qDebug() << "❌ [Delete] Client is null, cannot propagate delete to server";
     } else {
-        qDebug() << "ℹ️ [Delete] Not deleting for both sides";
     }
     
-    qDebug() << "✅✅✅ [handleDeleteRequest] COMPLETED!";
 }
 
 void ClientController::onTextMessageEditConfirmed(TextMessageItem *item, const QString &newText)
 {
     if (!item) {
-        qDebug() << "❌ [Edit] item is null";
         return;
     }
 
-    qDebug() << "✏️ [Edit] Starting edit for message ID:" << item->databaseId() << "New text:" << newText;
 
     const QString trimmed = newText.trimmed();
     if (trimmed.isEmpty()) {
@@ -835,7 +730,6 @@ void ClientController::onTextMessageEditConfirmed(TextMessageItem *item, const Q
     // Update in database
     if (m_db && item->databaseId() >= 0) {
         m_db->updateMessage(item->databaseId(), chunks.first(), true);
-        qDebug() << "✅ [Edit] Updated in database";
     }
 
     // Update UI locally
@@ -843,7 +737,6 @@ void ClientController::onTextMessageEditConfirmed(TextMessageItem *item, const Q
     item->markAsEdited(true);
     if (m_clientView) {
         m_clientView->refreshMessageItem(item);
-        qDebug() << "✅ [Edit] Updated UI locally";
     }
     
     // Always send edit to other side (no dialog)
@@ -857,16 +750,13 @@ void ClientController::onTextMessageEditConfirmed(TextMessageItem *item, const Q
         
         QJsonDocument doc(editMsg);
         QString jsonMessage = doc.toJson(QJsonDocument::Compact);
-        qDebug() << "📤 [Edit] Sending edit message:" << jsonMessage;
         m_client->sendMessage(jsonMessage);
-        qDebug() << "📨 [Edit] Sent to server";
     } else {
-        qDebug() << "❌ [Edit] Client is null";
     }
 
     if (chunks.size() > 1 && m_clientView) {
         for (int i = 1; i < chunks.size(); ++i) {
-            MessageData chunkData;
+            MessageData chunkData; 
             chunkData.text = chunks.at(i);
             chunkData.senderName = item->senderInfo().isEmpty() ? QStringLiteral("You") : item->senderInfo();
             chunkData.senderType = MessageData::User_Me;
@@ -889,5 +779,16 @@ void ClientController::onTextMessageEditConfirmed(TextMessageItem *item, const Q
 
     if (m_clientView) {
         m_clientView->exitMessageEditMode();
+    }
+}
+void ClientController::onWindowStateChanged(bool isActive)
+{
+    if (isActive) {
+
+        // Logic: Clear OS notifications
+        NotificationManager::instance().clearNotifications();
+
+        // Logic: Reset internal unread count (if you have one)
+        // m_unreadCount = 0;
     }
 }

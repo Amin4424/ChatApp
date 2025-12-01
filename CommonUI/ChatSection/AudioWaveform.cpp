@@ -3,11 +3,10 @@
 #include <QAudioDecoder>
 #include <QAudioBuffer>
 #include <QFile>
-#include <QDebug>
 #include <QUrl>
 #include <QtGlobal>
 #include <cmath>
-
+#include <QDebug>
 AudioWaveform::AudioWaveform(QObject *parent)
     : QObject(parent)
     , m_decoder(nullptr)
@@ -42,7 +41,6 @@ void AudioWaveform::processFile(const QString &filePath)
 #endif
     m_decoder->start();
     
-    qDebug() << "🎵 Starting audio decode for waveform:" << filePath;
 }
 
 void AudioWaveform::handleBufferReady()
@@ -99,7 +97,6 @@ void AudioWaveform::handleBufferReady()
 
 void AudioWaveform::handleFinished()
 {
-    qDebug() << "🎵 Audio decode finished. Total samples:" << m_samples.size();
     
     if (m_samples.isEmpty()) {
         qWarning() << "No audio samples decoded!";

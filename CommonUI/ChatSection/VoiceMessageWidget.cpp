@@ -80,6 +80,7 @@ void WaveformWidget::paintEvent(QPaintEvent *event)
     const int widthPerSample = qMax(1, event->rect().width() / m_waveform.size());
     const int centerY = event->rect().center().y();
 
+
     for (int i = 0; i < m_waveform.size(); ++i) {
         const int x = event->rect().left() + i * widthPerSample;
         const qreal sampleValue = m_waveform.at(i);
@@ -326,7 +327,8 @@ void VoiceMessageWidget::setThemeForMessage(bool isOutgoing)
         m_backgroundStyle = "background-color: #ffffff; border: 1px solid #e1e7f5;";
         m_playButtonBgColor = QColor("#edf1ff");
         m_playIconColor = QColor("#2f6dff");
-        m_textColor = QColor("#27304b");
+        m_durationTextColor = QColor("#27304b");
+        m_timeStampColor = QColor("#ffffffff");
         m_statusColor = QColor("#2f6dff");
         m_waveformBgColor = QColor(0, 0, 0, 0);
         m_waveformPlayedColor = QColor("#2f6dff");
@@ -337,7 +339,8 @@ void VoiceMessageWidget::setThemeForMessage(bool isOutgoing)
         m_backgroundStyle = "background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #7ec7ff, stop:1 #2e6bff);";
         m_playButtonBgColor = QColor("#ffffff");
         m_playIconColor = QColor("#2e6bff");
-        m_textColor = QColor("#f4f8ff");
+        m_durationTextColor = QColor("#f4f8ff");
+        m_timeStampColor = QColor("#f4f8ff");
         m_statusColor = QColor("#ffffff");
         m_waveformBgColor = QColor(255, 255, 255, 0);
         m_waveformPlayedColor = QColor("#ffffff");
@@ -354,8 +357,8 @@ void VoiceMessageWidget::applyTheme()
     m_playPauseButton->setStyleSheet(QString(
         "QToolButton { border: none; border-radius: 18px; background-color: %1; }")
         .arg(colorToCss(m_playButtonBgColor)));
-    m_durationLabel->setStyleSheet(QString("background-color: transparent; color: %1; font-weight: 600;").arg(colorToCss(m_textColor)));
-    m_timestampLabel->setStyleSheet(QString("background-color: transparent; color: %1;").arg(colorToCss(m_textColor)));
+    m_durationLabel->setStyleSheet(QString("background-color: transparent; color: %1; font-weight: 600;").arg(colorToCss(m_durationTextColor)));
+    m_timestampLabel->setStyleSheet(QString("background-color: transparent; color: %1;").arg(colorToCss(m_timeStampColor)));
     m_statusIconLabel->setStyleSheet(QString("background-color: transparent; color: %1; font-weight: bold;").arg(colorToCss(m_statusColor)));
     if (m_waveformWidget) {
         m_waveformWidget->setColors(m_waveformBgColor, m_waveformPlayedColor, m_waveformUnplayedColor);

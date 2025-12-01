@@ -20,12 +20,12 @@ void UserCard::setupUI()
 {
     // Frame setup
     setFrameShape(QFrame::NoFrame);
-    setFixedSize(244, 112);
+    setFixedSize(224, 112);
     setCursor(Qt::PointingHandCursor);
 
     // Main Layout
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(4, 16, 16, 16); // Padding: 10px left, 16px top/right/bottom
+    mainLayout->setContentsMargins(0, 16, 16, 16); // Padding: 10px left, 16px top/right/bottom
     mainLayout->setSpacing(16); // Gap: 16px
 
     // --- Avatar Section ---
@@ -116,14 +116,21 @@ void UserCard::setupUI()
     iconFont.setBold(true);
     m_readReceiptIcon->setFont(iconFont);
     m_readReceiptIcon->hide();
-
-    bottomRow->addWidget(m_messageLabel, 1);
-    bottomRow->addWidget(m_unreadBadge);
+    // textLayout->addSpacing(16);
+    // bottomRow->addWidget(m_messageLabel, 1);
+    // bottomRow->addWidget(m_unreadBadge);
     bottomRow->addWidget(m_readReceiptIcon);
 
     textLayout->addLayout(topRow);
     textLayout->addLayout(bottomRow);
     textLayout->addStretch(); // Push content up
+    textLayout->addSpacing(16);
+    QHBoxLayout *messageLayout = new QHBoxLayout();
+    messageLayout->setContentsMargins(0, 0, 0, 0);
+    messageLayout->setSpacing(0);
+    messageLayout->addWidget(m_messageLabel, 1 , Qt::AlignLeft);
+    messageLayout->addWidget(m_unreadBadge , 0 , Qt::AlignRight);
+    textLayout->addLayout(messageLayout);
 
     mainLayout->addLayout(textLayout);
 
@@ -159,7 +166,7 @@ void UserCard::setupUI()
         "QLabel#timeLabel { color: #C4C4C4; }" /* Using the color specified */
         "UserCard[selected='true'] QLabel#timeLabel { color: #FFFFFF; }"
         
-        "QLabel#messageLabel { color: #000000; }" /* Default color not specified, assuming black/dark gray */
+        "QLabel#messageLabel { color: #929292; }" /* Default color not specified, assuming black/dark gray */
         "UserCard[selected='true'] QLabel#messageLabel { color: #FFFFFF; }"
         "UserCard[typing='true'] QLabel#messageLabel { color: #3B82F6; font-style: italic; }"
         
@@ -193,7 +200,7 @@ void UserCard::setMessage(const QString &message)
 {
     QFontMetrics metrics(m_messageLabel->font());
     // Available width approx: 300 (card) - 24 (margins) - 40 (avatar) - 20 (spacing) - 30 (badge/time reserve) = ~180
-    QString elidedText = metrics.elidedText(message, Qt::ElideRight, 180); 
+    QString elidedText = metrics.elidedText(message, Qt::ElideLeft, 180); 
     m_messageLabel->setText(elidedText);
 }
 

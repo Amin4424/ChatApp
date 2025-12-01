@@ -1,6 +1,6 @@
 #include "CryptoManager.h"
-#include <openssl/err.h>
 #include <QDebug>
+#include <openssl/err.h>
 
 CryptoManager::CryptoManager(QObject *parent)
     : QObject(parent)
@@ -119,10 +119,6 @@ bool CryptoManager::encryptChunk(const QByteArray &plainChunk,
     metadata.tag = tag;
     metadata.encryptedSize = encryptedChunk.size();
 
-    qDebug() << "Encrypted chunk" << metadata.chunkIndex 
-             << "- Original size:" << metadata.originalSize 
-             << "Encrypted size:" << metadata.encryptedSize;
-
     return true;
 }
 
@@ -151,10 +147,6 @@ bool CryptoManager::decryptChunk(const QByteArray &encryptedChunk,
         qWarning() << "Failed to decrypt chunk" << metadata.chunkIndex;
         return false;
     }
-
-    qDebug() << "Decrypted chunk" << metadata.chunkIndex 
-             << "- Encrypted size:" << encryptedChunk.size() 
-             << "Decrypted size:" << plainChunk.size();
 
     return true;
 }
@@ -348,8 +340,6 @@ QByteArray CryptoManager::generateAES256Key()
     const QByteArray b64_key = "llZem1M53EBHauupjh4z/Biv1FR0vu7cXv8sqKjMpTw=";
 
     QByteArray key = QByteArray::fromBase64(b64_key);
-    qDebug() << "\n\n\n\n key :     "
-             << key.toBase64() << "\n\n\n\n";
     return key;
 }
 
@@ -400,7 +390,6 @@ QByteArray CryptoManager::serializeMetadata(const QVector<ChunkMetadata> &metada
         stream << meta.encryptedSize;
     }
 
-    qDebug() << "Serialized metadata for" << metadataList.size() << "chunks, total size:" << result.size() << "bytes";
     return result;
 }
 
@@ -429,13 +418,11 @@ QVector<ChunkMetadata> CryptoManager::deserializeMetadata(const QByteArray &data
         stream >> meta.encryptedSize;
 
         if (stream.status() != QDataStream::Ok) {
-            qWarning() << "Error deserializing metadata at chunk" << i;
             return QVector<ChunkMetadata>();
         }
 
         result.append(meta);
     }
 
-    qDebug() << "Deserialized metadata for" << result.size() << "chunks";
     return result;
 }

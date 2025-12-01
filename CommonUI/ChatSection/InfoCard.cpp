@@ -411,7 +411,6 @@ void InfoCard::setState(State newState)
         setFixedHeight(88);
     }
     
-    qDebug() << " [InfoCard] State:" << (int)newState << "| Size:" << size() << "| isOutgoing:" << m_isOutgoing;
     
     updateGeometry();
     

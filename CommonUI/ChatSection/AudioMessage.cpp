@@ -2,7 +2,6 @@
 #include "AudioWaveform.h"
 #include "TusDownloader.h"
 
-#include <QDebug>
 #include <QHBoxLayout>
 #include <QUrl>
 #include <QToolButton>
@@ -80,6 +79,11 @@ void AudioMessage::setupUI()
     m_voiceWidget->setDuration(m_durationSeconds);
     m_voiceWidget->setTimestamp(m_timestamp);
     m_voiceWidget->setStatus(isOutgoing(m_direction) ? MessageBubble::Status::Sent : MessageBubble::Status::None);
+    
+    if (!m_preloadedWaveform.isEmpty()) {
+        m_voiceWidget->setWaveform(m_preloadedWaveform);
+    }
+
     connect(m_voiceWidget, &VoiceMessageWidget::playPauseClicked, this, &AudioMessage::onPlayPauseClicked);
     connect(m_voiceWidget, &VoiceMessageWidget::sliderSeeked, this, &AudioMessage::onSliderSeeked);
 
@@ -277,6 +281,11 @@ void AudioMessage::generateWaveform()
 
 void AudioMessage::onWaveformReady(const QVector<qreal> &waveform)
 {
+    // If generation failed (empty) but we already have a waveform (from server/preload), keep the old one.
+    if (waveform.isEmpty() && !m_preloadedWaveform.isEmpty()) {
+        return;
+    }
+
     m_preloadedWaveform = waveform;
 
     if (m_voiceWidget) {
@@ -317,11 +326,7 @@ void AudioMessage::initializeActionButton()
 
     m_deleteAction = m_actionMenu->addAction(deleteIcon(true), tr("Delete"));
     connect(m_deleteAction, &QAction::triggered, this, [this]() {
-        qDebug() << "🔥🔥🔥 [AudioMessage] Delete action triggered!";
-        qDebug() << "    this:" << this;
-        qDebug() << "    databaseId:" << databaseId();
         emit deleteRequested(this);
-        qDebug() << "    deleteRequested signal emitted!";
     });
 
     connect(m_actionMenu, &QMenu::aboutToShow, this, [this]() {

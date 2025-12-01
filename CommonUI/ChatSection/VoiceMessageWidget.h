@@ -79,7 +79,8 @@ private:
     QString m_backgroundStyle;
     QColor m_playButtonBgColor;
     QColor m_playIconColor;
-    QColor m_textColor;
+    QColor m_durationTextColor;
+    QColor m_timeStampColor;
     QColor m_statusColor;
     QColor m_waveformBgColor;
     QColor m_waveformPlayedColor;

@@ -11,7 +11,6 @@
 #include <QPainter>
 #include <QLinearGradient>
 #include <QDateTime>
-#include <QDebug>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
 
@@ -200,14 +199,8 @@ void TextMessage::applyStyles()
 
 void TextMessage::markAsSent()
 {
-    qDebug() << "📤 [TextMessage] markAsSent() called";
     if (m_bubble) {
         m_bubble->setMessageStatus(MessageBubble::Status::Sent);
-        qDebug() << "   [TextMessage] Bubble visibility:" << m_bubble->isVisible() << " Size:" << m_bubble->size();
-        if (m_bubble->messageLabel()) {
-             qDebug() << "   [TextMessage] Message Label visibility:" << m_bubble->messageLabel()->isVisible() 
-                      << " Text:" << m_bubble->messageLabel()->text();
-        }
     }
 }
 

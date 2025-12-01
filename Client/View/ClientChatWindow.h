@@ -7,6 +7,7 @@
 #include <QIcon>
 #include "TextMessage.h" // <-- *** ADD THIS INCLUDE ***
 #include "ChatHeader.h" // Added ChatHeader
+#include "EmptyMessageState.h" // Empty state widget
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QMediaRecorder>
@@ -57,12 +58,14 @@ signals:
     void fileUploaded(const QString &fileName, const QString &url, qint64 fileSize, const QString &serverHost = "", const QVector<qreal> &waveform = QVector<qreal>());
     void reconnectRequested();
     void messageEditConfirmed(TextMessage *item, const QString &newText);
+    void windowStateChanged(bool isActive);
 
 protected:
     void handleSendMessage() override;
     void handleFileUpload() override;
     bool eventFilter(QObject *obj, QEvent *event) override;
-
+    void changeEvent(QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 private slots:
     void onsendMessageBtnclicked();
     void onchatHistoryWdgtitemClicked(QListWidgetItem *item);
@@ -102,8 +105,10 @@ private:
     QIcon m_sendButtonEditIcon;
     
     ChatHeader *m_chatHeader; // Added ChatHeader
+    EmptyMessageState *m_emptyMessageState; // Empty state widget
 
     void updateSendButtonForEditState();
+    void updateEmptyStateVisibility();
     void applyModernTheme();
     void setupInputArea(); // New method for UI redesign
 };

@@ -1,5 +1,4 @@
 #include "Model/Network/TusServer.h"
-#include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QStandardPaths>
@@ -19,10 +18,8 @@ TusServer::TusServer(QObject *parent)
 
     // Connect to process output for debugging
     connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
-        qDebug() << "TUS stdout:" << m_process->readAllStandardOutput();
     });
     connect(m_process, &QProcess::readyReadStandardError, this, [this]() {
-        qDebug() << "TUS stderr:" << m_process->readAllStandardError();
     });
 }
 
@@ -33,7 +30,6 @@ TusServer::~TusServer()
 
 void TusServer::killExistingProcessOnPort(quint16 port)
 {
-    qDebug() << "Checking for existing processes using port" << port;
 
     // Use lsof to find processes using the port
     QProcess lsofProcess;
@@ -44,12 +40,10 @@ void TusServer::killExistingProcessOnPort(quint16 port)
         QString output = lsofProcess.readAllStandardOutput().trimmed();
         if (!output.isEmpty()) {
             QStringList pids = output.split('\n');
-            qDebug() << "Found" << pids.size() << "process(es) using port" << port;
 
             // Kill each process
             for (const QString &pid : pids) {
                 if (!pid.isEmpty()) {
-                    qDebug() << "Killing process" << pid << "using port" << port;
                     QProcess::execute("kill", QStringList() << "-9" << pid.trimmed());
                 }
             }
@@ -57,10 +51,8 @@ void TusServer::killExistingProcessOnPort(quint16 port)
             // Wait a bit for processes to die
             QThread::msleep(500);
         } else {
-            qDebug() << "No processes found using port" << port;
         }
     } else {
-        qDebug() << "lsof command failed or not available, trying alternative method";
 
         // Alternative: try to kill any tusd processes
         QProcess::execute("pkill", QStringList() << "-9" << "tusd");
@@ -82,7 +74,6 @@ bool TusServer::start(quint16 port, const QString &uploadDir)
     QString appDir = QCoreApplication::applicationDirPath();
     QString tusdPath = appDir + "/tusd";
     
-    qDebug() << "Looking for tusd at:" << tusdPath;
     
     // If not found, return silently (no error)
     if (!QFile::exists(tusdPath)) {
@@ -90,7 +81,6 @@ bool TusServer::start(quint16 port, const QString &uploadDir)
         return false;
     }
     
-    qDebug() << "✓ Found tusd binary at:" << tusdPath;
 
     // Create uploads directory if it doesn't exist
     QString fullUploadDir = appDir + "/" + uploadDir;
@@ -105,7 +95,6 @@ bool TusServer::start(quint16 port, const QString &uploadDir)
 
     if (m_process->waitForStarted(5000)) {
         m_isRunning = true;
-        qDebug() << "TUS server started successfully on port" << port;
         emit started();
         return true;
     } else {
@@ -122,7 +111,6 @@ void TusServer::stop()
         return;
     }
 
-    qDebug() << "Stopping TUS server...";
     m_process->terminate();
 
     if (!m_process->waitForFinished(3000)) {
@@ -132,7 +120,6 @@ void TusServer::stop()
     }
 
     m_isRunning = false;
-    qDebug() << "✓ TUS server stopped";
     emit stopped();
 }
 
@@ -144,7 +131,6 @@ bool TusServer::isRunning() const
 void TusServer::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     m_isRunning = false;
-    qDebug() << "TUS process finished - Exit code:" << exitCode << "Status:" << exitStatus;
     emit stopped();
 }
 

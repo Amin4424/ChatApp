@@ -63,16 +63,20 @@ add_library(CommonCore STATIC
     CommonCore/TusDownloader.h
     CommonCore/TusUploader.cpp
     CommonCore/TusUploader.h
+    CommonCore/NotificationManager.cpp
+    CommonCore/NotificationManager.h
 )
 
 target_include_directories(CommonCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/CommonCore
+    ${CMAKE_CURRENT_SOURCE_DIR}/CommonUI
     ${OPENSSL_INCLUDE_DIR}
 )
 
 target_link_libraries(CommonCore PUBLIC
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Widgets
     OpenSSL::SSL
     OpenSSL::Crypto
 )
@@ -81,41 +85,46 @@ target_link_libraries(CommonCore PUBLIC
 # CommonUI - STATIC LIBRARY (Only shared UI components)
 #==============================================================================
 add_library(CommonUI STATIC
-    CommonUI/MessageBubble.cpp
-    CommonUI/MessageBubble.h
-    CommonUI/InfoCard.cpp
-    CommonUI/InfoCard.h
+    CommonUI/ChatSection/MessageBubble.cpp
+    CommonUI/ChatSection/MessageBubble.h
+    CommonUI/ChatSection/InfoCard.cpp
+    CommonUI/ChatSection/InfoCard.h
     CommonUI/BaseChatWindow.cpp
     CommonUI/BaseChatWindow.h
-    CommonUI/VoiceMessageWidget.cpp
-    CommonUI/VoiceMessageWidget.h
-    CommonUI/AudioWaveform.cpp
-    CommonUI/AudioWaveform.h
-    CommonUI/MessageData.h
-    CommonUI/MessageAliases.h
+    CommonUI/ChatSection/VoiceMessageWidget.cpp
+    CommonUI/ChatSection/VoiceMessageWidget.h
+    CommonUI/ChatSection/AudioWaveform.cpp
+    CommonUI/ChatSection/AudioWaveform.h
+    CommonUI/ChatSection/MessageData.h
+    CommonUI/ChatSection/MessageAliases.h
     CommonUI/ModernTheme.h
+    CommonUI/ChatSection/ChatStyles.cpp
+    CommonUI/ChatSection/ChatStyles.h
     CommonUI/ModernThemeApplier.cpp
     CommonUI/ModernThemeApplier.h
     CommonUI/ToastNotification.cpp
     CommonUI/ToastNotification.h
-    CommonUI/AttachmentMessage.cpp
-    CommonUI/AttachmentMessage.h
-    CommonUI/AudioMessage.cpp
-    CommonUI/AudioMessage.h
-    CommonUI/FileMessage.cpp
-    CommonUI/FileMessage.h
-    CommonUI/MessageComponent.cpp
-    CommonUI/MessageComponent.h
-    CommonUI/TextMessage.cpp
-    CommonUI/TextMessage.h
-    CommonUI/UserCard.cpp
-    CommonUI/UserCard.h
-    CommonUI/ChatHeader.cpp
-    CommonUI/ChatHeader.h
+    CommonUI/ChatSection/AttachmentMessage.cpp
+    CommonUI/ChatSection/AttachmentMessage.h
+    CommonUI/ChatSection/AudioMessage.cpp
+    CommonUI/ChatSection/AudioMessage.h
+    CommonUI/ChatSection/FileMessage.cpp
+    CommonUI/ChatSection/FileMessage.h
+    CommonUI/ChatSection/MessageComponent.cpp
+    CommonUI/ChatSection/MessageComponent.h
+    CommonUI/ChatSection/TextMessage.cpp
+    CommonUI/ChatSection/TextMessage.h
+    CommonUI/ChatSection/ChatHeader.cpp
+    CommonUI/ChatSection/ChatHeader.h
+    CommonUI/ChatSection/ChatInputWidget.cpp
+    CommonUI/ChatSection/ChatInputWidget.h
+    CommonUI/ChatSection/EmptyMessageState.cpp
+    CommonUI/ChatSection/EmptyMessageState.h
 )
 
 target_include_directories(CommonUI PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/CommonUI
+    ${CMAKE_CURRENT_SOURCE_DIR}/CommonUI/ChatSection
     ${CMAKE_CURRENT_SOURCE_DIR}/CommonCore
     ${OPENSSL_INCLUDE_DIR}
 )
@@ -214,6 +223,10 @@ add_executable(ServerApp
     Server/View/ServerChatWindow.h
     Server/View/ServerChatWindow.ui
     Server/View/resources.qrc
+    Server/View/Components/UserListManager.cpp
+    Server/View/Components/UserListManager.h
+    Server/View/Components/UserCard.h
+    Server/View/Components/UserCard.cpp
     
     # Model - Network
     Server/Model/Network/WebSocketServer.cpp

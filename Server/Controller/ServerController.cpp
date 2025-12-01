@@ -5,8 +5,8 @@
 #include "MessageAliases.h"
 #include "MessageComponent.h"
 #include "MessageData.h"
+#include "../../CommonCore/NotificationManager.h"
 
-#include <QDebug>
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -300,10 +300,13 @@ void ServerController::onUserSelected(const QString &userId)
         m_isBroadcastMode = false;
         m_currentPrivateTargetUser = userId;
         m_currentFilteredUser = userId;
-        
+
         // Reset unread count for this user
-        m_unreadCounts[userId] = 0;
-        
+        QString cleanUserId = userId.split(" - ").first().trimmed(); 
+
+        // 1. HARD RESET the count in the map
+        m_unreadCounts[cleanUserId] = 0;
+
         // Immediately update the user card to show 0 unread messages
         QString preview = m_lastMessages.value(userId, "Click to open chat");
         QString time = m_lastTimestamps.value(userId, "");
@@ -311,7 +314,10 @@ void ServerController::onUserSelected(const QString &userId)
             // Pass the userId directly - updateUserCardInfo now handles matching
             m_serverView->updateUserCardInfo(userId, preview, time, 0);
         }
-        
+
+        // Clear notifications when opening this user's chat
+        NotificationManager::instance().clearNotifications();
+
         loadHistoryForUser(userId);
     }
 }
@@ -341,26 +347,21 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
     
     QString type = obj["type"].toString();
     
-    qDebug() << "📨 [MessageReceived] Type:" << type << "From:" << senderId;
     
     // Handle delete message
     if (type == "delete") {
         int messageId = obj["messageId"].toInt();
         QString sender = senderId;
-        qDebug() << "🗑️ [SERVER Delete Received] Message ID:" << messageId << "from sender:" << sender;
         
         // First try to find by database ID
         if (m_serverView) {
             m_serverView->removeMessageByDatabaseId(messageId);
-            qDebug() << "✅ [SERVER Delete Received] Called removeMessageByDatabaseId";
             
             // If not found by ID, try to remove last message from sender
             m_serverView->removeLastMessageFromSender(sender);
-            qDebug() << "✅ [SERVER Delete Received] Called removeLastMessageFromSender";
         }
         if (m_db) {
             m_db->deleteMessage(messageId);
-            qDebug() << "✅ [SERVER Delete Received] Deleted from database";
         }
         return;
     }
@@ -370,20 +371,16 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
         int messageId = obj["messageId"].toInt();
         QString newText = obj["newText"].toString();
         QString sender = senderId;
-        qDebug() << "✏️ [SERVER Edit Received] Message ID:" << messageId << "New text:" << newText << "from sender:" << sender;
         
         // First try to find by database ID
         if (m_serverView) {
             m_serverView->updateMessageByDatabaseId(messageId, newText);
-            qDebug() << "✅ [SERVER Edit Received] Called updateMessageByDatabaseId";
             
             // If not found by ID, try to update last message from sender
             m_serverView->updateLastMessageFromSender(sender, newText);
-            qDebug() << "✅ [SERVER Edit Received] Called updateLastMessageFromSender";
         }
         if (m_db) {
             m_db->updateMessage(messageId, newText, true);
-            qDebug() << "✅ [SERVER Edit Received] Updated database";
         }
         return;
     }
@@ -419,7 +416,6 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
                 waveform.append(val.toDouble());
             }
             msgData.voiceInfo.waveform = waveform;
-            qDebug() << "📊 Received waveform with" << waveform.size() << "samples";
         }
         
         if (msgData.fileInfo.fileName.isEmpty()) {
@@ -432,15 +428,22 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
     // --- UPDATE UNREAD COUNT & USER CARD ---
     // If we are NOT chatting with this user (and not in broadcast mode), increment unread
     bool isChattingWithUser = (!m_isBroadcastMode && m_currentPrivateTargetUser == senderId);
-    
     int unread = m_unreadCounts.value(senderId, 0);
     if (!isChattingWithUser) {
         unread++;
     } else {
         unread = 0;
+        m_unreadCounts[senderId] = 0;
     }
-    
     updateUserCard(senderId, previewText, msgData.timestamp, unread);
+    // --- NOTIFICATION LOGIC ---
+    // Show notification if not chatting with this user or window is not active
+    NotificationManager::instance().checkAndNotify(
+        senderId,
+        previewText,
+        m_currentPrivateTargetUser,
+        m_isBroadcastMode
+    );
     // ---------------------------------------
     
     QString cleanFilteredUser = m_currentFilteredUser.split(" - ").first().trimmed();
@@ -471,10 +474,19 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
     if (m_db) {
         QString dbMessage;
         if (msgData.isVoiceMessage) {
-            dbMessage = QString("VOICE|%1|%2|%3")
+            // Convert waveform to JSON array string for storage
+            QString waveformJson = "[";
+            for (int i = 0; i < msgData.voiceInfo.waveform.size(); ++i) {
+                if (i > 0) waveformJson += ",";
+                waveformJson += QString::number(msgData.voiceInfo.waveform[i], 'f', 4);
+            }
+            waveformJson += "]";
+            
+            dbMessage = QString("VOICE|%1|%2|%3|%4")
                             .arg(msgData.fileInfo.fileName)
                             .arg(msgData.voiceInfo.duration)
-                            .arg(msgData.voiceInfo.url);
+                            .arg(msgData.voiceInfo.url)
+                            .arg(waveformJson);
         } else if (msgData.isFileMessage) {
             dbMessage = QString("FILE|%1|%2|%3")
                             .arg(msgData.fileInfo.fileName)
@@ -483,7 +495,6 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
         }
         if (!dbMessage.isEmpty()) {
             msgData.databaseId = m_db->saveMessage(senderId, "Server", dbMessage, QDateTime::currentDateTime(), false);
-            qDebug() << "✅ [SERVER] Saved file/voice to DB with ID:" << msgData.databaseId;
         }
     } else {
         msgData.databaseId = -1;
@@ -498,8 +509,6 @@ void ServerController::onServerMessageReceived(const QString &message, const QSt
 
 void ServerController::onFileUploaded(const QString &fileName, const QString &url, qint64 fileSize, const QString &serverHost, const QVector<qreal> &waveform)
 {
-    qDebug() << "🔴 [CONTROLLER] onFileUploaded called - fileName:" << fileName << "waveform size:" << waveform.size();
-    qDebug() << "ServerController: File uploaded:" << fileName << url << fileSize << "waveform size:" << waveform.size();
     
     // Detect if this is a voice message based on file extension
     bool isVoice = fileName.endsWith(".m4a", Qt::CaseInsensitive) || 
@@ -545,7 +554,6 @@ void ServerController::onFileUploaded(const QString &fileName, const QString &ur
         // Save waveform in database: VOICE|fileName|duration|url|waveformJson
         dbMessage = QString("VOICE|%1|0|%2|%3").arg(fileName).arg(url).arg(waveformJson);
         
-        qDebug() << "🎙️ Saving voice to DB with waveform size:" << waveform.size();
     } else {
         // Regular file message
         msgData.isFileMessage = true;
@@ -592,7 +600,6 @@ void ServerController::onFileUploaded(const QString &fileName, const QString &ur
     
     // **FIX: Widget قبلاً در View ساخته شده - نباید دوباره بسازیم!**
     // این تابع فقط برای ارسال به WebSocket و ذخیره در DB است
-    qDebug() << "🟣 [CONTROLLER] SKIPPING widget creation (already created in View):" << fileName;
 }
 
 void ServerController::loadHistoryForServer()
@@ -646,7 +653,6 @@ void ServerController::loadHistoryForServer()
                             waveform.append(val.toDouble());
                         }
                         msgData.voiceInfo.waveform = waveform;
-                        qDebug() << "📊 [loadHistoryForServer] Loaded waveform from DB with" << waveform.size() << "samples";
                     }
                 }
             }
@@ -733,7 +739,6 @@ void ServerController::loadHistoryForUser(const QString &userId)
                             waveform.append(val.toDouble());
                         }
                         msgData.voiceInfo.waveform = waveform;
-                        qDebug() << "📊 [loadHistoryForUser] Loaded waveform from DB with" << waveform.size() << "samples";
                     }
                 }
             }
@@ -800,19 +805,11 @@ void ServerController::onTextMessageDeleteRequested(TextMessageItem *item)
 
 void ServerController::onFileMessageDeleteRequested(FileMessageItem *item)
 {
-    qDebug() << "🗑️🗑️🗑️ [SERVER onFileMessageDeleteRequested] CALLED!";
-    qDebug() << "    Item:" << item;
-    qDebug() << "    Database ID:" << (item ? item->databaseId() : -999);
-    qDebug() << "    Direction:" << (item ? static_cast<int>(item->direction()) : -999);
     handleDeleteRequest(item, DeleteRequestScope::Prompt);
 }
 
 void ServerController::onVoiceMessageDeleteRequested(VoiceMessageItem *item)
 {
-    qDebug() << "🗑️🗑️🗑️ [SERVER onVoiceMessageDeleteRequested] CALLED!";
-    qDebug() << "    Item:" << item;
-    qDebug() << "    Database ID:" << (item ? item->databaseId() : -999);
-    qDebug() << "    Direction:" << (item ? static_cast<int>(item->direction()) : -999);
     handleDeleteRequest(item, DeleteRequestScope::Prompt);
 }
 
@@ -873,15 +870,12 @@ void ServerController::handleDeleteRequest(MessageComponent *item, DeleteRequest
     }
     }
 
-    qDebug() << "🗑️ [Delete] Starting delete for message ID:" << item->databaseId() << "Delete for both:" << deleteForBoth;
 
     if (m_db && item->databaseId() >= 0) {
         m_db->deleteMessage(item->databaseId());
-        qDebug() << "✅ [Delete] Deleted from database";
     }
 
     m_serverView->removeMessageItem(item);
-    qDebug() << "✅ [Delete] Removed from UI";
 
     if (deleteForBoth) {
         QJsonObject deleteMsg;
@@ -893,37 +887,29 @@ void ServerController::handleDeleteRequest(MessageComponent *item, DeleteRequest
         QJsonDocument doc(deleteMsg);
         QString jsonMessage = doc.toJson(QJsonDocument::Compact);
 
-        qDebug() << "📤 [Delete] Sending delete message:" << jsonMessage;
 
         if (m_isBroadcastMode || m_currentPrivateTargetUser.isEmpty()) {
             if (m_server) {
                 m_server->broadcastToAll(jsonMessage);
-                qDebug() << "📡 [Delete] Broadcasted to all";
             } else {
-                qDebug() << "❌ [Delete] Server is null (broadcast)";
             }
         } else {
             QString targetUser = m_currentPrivateTargetUser.split(" - ").first().trimmed();
             if (m_server) {
                 m_server->sendMessageToClient(targetUser, jsonMessage);
-                qDebug() << "📨 [Delete] Sent to user:" << targetUser;
             } else {
-                qDebug() << "❌ [Delete] Server is null (private)";
             }
         }
     } else {
-        qDebug() << "ℹ️ [Delete] Delete for both sides not selected";
     }
 }
 
 void ServerController::onTextMessageEditConfirmed(TextMessageItem *item, const QString &newText)
 {
     if (!item) {
-        qDebug() << "❌ [Edit] item is null";
         return;
     }
 
-    qDebug() << "✏️ [Edit] Starting edit for message ID:" << item->databaseId() << "New text:" << newText;
 
     const QString trimmed = newText.trimmed();
     if (trimmed.isEmpty()) {
@@ -941,7 +927,6 @@ void ServerController::onTextMessageEditConfirmed(TextMessageItem *item, const Q
     // Update in database
     if (m_db && item->databaseId() >= 0) {
         m_db->updateMessage(item->databaseId(), chunks.first(), true);
-        qDebug() << "✅ [Edit] Updated in database";
     }
 
     // Update UI locally
@@ -949,7 +934,6 @@ void ServerController::onTextMessageEditConfirmed(TextMessageItem *item, const Q
     item->markAsEdited(true);
     if (m_serverView) {
         m_serverView->refreshMessageItem(item);
-        qDebug() << "✅ [Edit] Updated UI locally";
     }
     
     // Always send edit to other side (no dialog)
@@ -963,22 +947,17 @@ void ServerController::onTextMessageEditConfirmed(TextMessageItem *item, const Q
     QJsonDocument doc(editMsg);
     QString jsonMessage = doc.toJson(QJsonDocument::Compact);
     
-    qDebug() << "📤 [Edit] Sending edit message:" << jsonMessage;
     
     if (m_isBroadcastMode || m_currentPrivateTargetUser.isEmpty()) {
         if (m_server) {
             m_server->broadcastToAll(jsonMessage);
-            qDebug() << "📡 [Edit] Broadcasted to all";
         } else {
-            qDebug() << "❌ [Edit] Server is null (broadcast)";
         }
     } else {
         QString targetUser = m_currentPrivateTargetUser.split(" - ").first().trimmed();
         if (m_server) {
             m_server->sendMessageToClient(targetUser, jsonMessage);
-            qDebug() << "📨 [Edit] Sent to user:" << targetUser;
         } else {
-            qDebug() << "❌ [Edit] Server is null (private)";
         }
     }
 

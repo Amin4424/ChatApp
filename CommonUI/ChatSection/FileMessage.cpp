@@ -2,7 +2,6 @@
 #include "TusDownloader.h"
 
 #include <QDateTime>
-#include <QDebug>
 #include <QHBoxLayout>
 #include <QToolButton>
 #include <QMenu>
@@ -113,9 +112,6 @@ void FileMessage::setupUI()
         mainLayout->addWidget(m_infoCard);
     }
 
-    qDebug() << "[FileMessage] Created | Direction:"
-             << (isOutgoing(m_direction) ? "Outgoing" : "Incoming")
-             << "| InfoCard size:" << m_infoCard->size();
 
     if (m_moreButton) {
         m_moreButton->hide();
@@ -169,7 +165,6 @@ void FileMessage::onClicked()
 
 void FileMessage::markAsSent()
 {
-    qDebug() << "📤 [FileMessage] markAsSent() called for:" << m_fileName;
     m_isSent = true;
     setCompletedState();
 }
@@ -222,11 +217,7 @@ void FileMessage::initializeActionButton()
 
     m_deleteAction = m_actionMenu->addAction(deleteIcon(true), tr("Delete"));
     connect(m_deleteAction, &QAction::triggered, this, [this]() {
-        qDebug() << "🔥🔥🔥 [FileMessage] Delete action triggered!";
-        qDebug() << "    this:" << this;
-        qDebug() << "    databaseId:" << databaseId();
         emit deleteRequested(this);
-        qDebug() << "    deleteRequested signal emitted!";
     });
 
     connect(m_actionMenu, &QMenu::aboutToShow, this, [this]() {

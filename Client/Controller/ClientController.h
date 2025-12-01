@@ -28,7 +28,7 @@ public:
 
     void displayNewConnection();
     void setServerHost(const QString &host) { m_serverHost = host; }
-
+    void onWindowStateChanged(bool isActive);
 public slots:
     void displayNewMessages(const QString &message);
     void displayFileMessage(const QString &fileName, qint64 fileSize, const QString &fileUrl, const QString &sender = "", const QString &serverHost = "");

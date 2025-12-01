@@ -1,5 +1,4 @@
 #include "TusUploader.h"
-#include <QDebug>
 
 TusUploader::TusUploader(QObject *parent)
     : QObject(parent),
@@ -24,11 +23,9 @@ TusUploader::~TusUploader()
 void TusUploader::setEncryptionKey(const QByteArray &key)
 {
     if (key.size() != 32) {
-        qWarning() << "TusUploader: Encryption key must be 32 bytes for AES-256";
         return;
     }
     m_encryptionKey = key;
-    qDebug() << "TusUploader: Encryption key set";
 }
 
 void TusUploader::startUpload(const QString &filePath, const QUrl &tusEndpoint, bool encrypt)
@@ -40,7 +37,6 @@ void TusUploader::startUpload(const QString &filePath, const QUrl &tusEndpoint, 
     if (m_encryptionEnabled && m_encryptionKey.size() != 32) {
         // Generate a key if encryption is enabled but no key is set
         m_encryptionKey = CryptoManager::generateAES256Key();
-        qDebug() << "TusUploader: Generated new encryption key";
     }
 
     m_file = new QFile(filePath);
@@ -52,8 +48,6 @@ void TusUploader::startUpload(const QString &filePath, const QUrl &tusEndpoint, 
     m_fileSize = m_file->size();
     m_uploadUrl = tusEndpoint; // This is the main endpoint, e.g., http://192.168.1.10:1080/files/
 
-    qDebug() << "TusUploader: Starting upload" 
-             << (m_encryptionEnabled ? "WITH ENCRYPTION" : "without encryption");
 
     // Step 1: Create the upload resource on the server
     createUpload();
@@ -61,7 +55,6 @@ void TusUploader::startUpload(const QString &filePath, const QUrl &tusEndpoint, 
 
 void TusUploader::cancelUpload()
 {
-    qDebug() << "🛑 TusUploader: Canceling upload...";
     
     // Disconnect all signals to prevent segfault
     if (m_reply) {
@@ -83,7 +76,6 @@ void TusUploader::cancelUpload()
         m_manager->disconnect();
     }
     
-    qDebug() << "✅ TusUploader: Upload canceled safely";
 }
 
 void TusUploader::createUpload()
@@ -98,7 +90,6 @@ void TusUploader::createUpload()
     QString metadata = "filename " + QByteArray(fileInfo.fileName().toUtf8()).toBase64();
     request.setRawHeader("Upload-Metadata", metadata.toLocal8Bit());
 
-    qDebug() << "Tus: Creating upload for" << fileInfo.fileName();
 
     m_reply = m_manager->post(request, QByteArray()); // Send empty POST
 
@@ -135,7 +126,6 @@ void TusUploader::onUploadCreated()
     
     m_reply->deleteLater();
 
-    qDebug() << "Tus: Upload created at" << m_uploadUrl.toString();
 
     // Step 2: Start uploading chunks
     m_bytesUploaded = 0;
@@ -147,7 +137,6 @@ void TusUploader::uploadChunk()
     QByteArray chunk = m_file->read(CHUNK_SIZE);
     if (chunk.isEmpty() && m_bytesUploaded != m_fileSize) {
         // This can happen if read() fails but not at end
-        qDebug() << "Tus: Read failed, but not at end.";
         return;
     }
 
@@ -157,19 +146,13 @@ void TusUploader::uploadChunk()
     if (m_encryptionEnabled && !chunk.isEmpty()) {
         ChunkMetadata metadata;
         metadata.chunkIndex = m_currentChunkIndex++;
-
         QByteArray encryptedChunk;
         if (!CryptoManager::encryptChunk(chunk, m_encryptionKey, encryptedChunk, metadata)) {
             emit error("Failed to encrypt chunk");
             return;
         }
-
         m_chunkMetadata.append(metadata);
         dataToUpload = encryptedChunk;
-
-        qDebug() << "Tus: Encrypted chunk" << metadata.chunkIndex 
-                 << "- Original:" << chunk.size() 
-                 << "Encrypted:" << encryptedChunk.size();
     }
 
     QNetworkRequest request(m_uploadUrl);
@@ -177,7 +160,6 @@ void TusUploader::uploadChunk()
     request.setRawHeader("Upload-Offset", QByteArray::number(m_bytesUploaded));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/offset+octet-stream");
 
-    qDebug() << "Tus: Sending chunk, offset" << m_bytesUploaded << "size" << dataToUpload.size();
 
     m_reply = m_manager->sendCustomRequest(request, "PATCH", dataToUpload); // Send chunk with PATCH
 
@@ -214,26 +196,19 @@ void TusUploader::onChunkUploaded()
     m_bytesUploaded = m_reply->rawHeader("Upload-Offset").toLongLong();
     m_reply->deleteLater();
 
-    qDebug() << "Tus: Chunk uploaded. New offset is" << m_bytesUploaded;
 
     if (m_bytesUploaded == m_fileSize) {
         // We are done!
-        qDebug() << "Tus: Upload finished.";
         m_file->close();
         emit uploadProgress(m_fileSize, m_fileSize);
-        
         // Serialize encryption metadata if encryption was used
         QByteArray metadata;
         if (m_encryptionEnabled) {
             metadata = CryptoManager::serializeMetadata(m_chunkMetadata);
-            qDebug() << "Tus: Upload completed with encryption -" 
-                     << m_chunkMetadata.size() << "chunks, metadata size:" << metadata.size() << "bytes";
         }
-        
         // --- FIX: Emit the *path* only, not the full URL ---
         emit finished(m_uploadUrl.path(), m_fileSize, metadata);
         // --- END FIX ---
-        
     } else {
         // Send the next chunk
         uploadChunk();
@@ -243,7 +218,6 @@ void TusUploader::onChunkUploaded()
 void TusUploader::onUploadError(QNetworkReply::NetworkError code)
 {
     QString errorMsg = m_reply->errorString();
-    qDebug() << "Tus: Network Error" << code << errorMsg;
     emit error(errorMsg);
 
     if (m_reply) {
